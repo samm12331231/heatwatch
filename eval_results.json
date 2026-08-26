@@ -1,0 +1,152 @@
+{
+  "summary": {
+    "events_tested": 1,
+    "total_site_days": 6,
+    "true_positives": 6,
+    "false_negatives": 0,
+    "recall": 1.0,
+    "false_alarm_rate": 0.0,
+    "cost_delta": {
+      "total_site_days": 6,
+      "naive_cancellations": 6,
+      "heatwatch_reschedules": 6,
+      "cost_naive": 12000,
+      "cost_heatwatch": 1500,
+      "savings": 10500
+    }
+  },
+  "heat_events": {
+    "July 2023 Phoenix Heat Wave": {
+      "mountain_pointe": {
+        "site_name": "Mountain Pointe High School",
+        "total_days": 1,
+        "alerts_fired": 1,
+        "recall": 1.0,
+        "daily_data": [
+          {
+            "date": "2023-07-15",
+            "temp_c": 42.33,
+            "alert": true,
+            "policy_level": "black"
+          }
+        ]
+      },
+      "desert_vista": {
+        "site_name": "Desert Vista High School",
+        "total_days": 1,
+        "alerts_fired": 1,
+        "recall": 1.0,
+        "daily_data": [
+          {
+            "date": "2023-07-15",
+            "temp_c": 42.31,
+            "alert": true,
+            "policy_level": "black"
+          }
+        ]
+      },
+      "chandler": {
+        "site_name": "Chandler High School",
+        "total_days": 1,
+        "alerts_fired": 1,
+        "recall": 1.0,
+        "daily_data": [
+          {
+            "date": "2023-07-15",
+            "temp_c": 42.45,
+            "alert": true,
+            "policy_level": "black"
+          }
+        ]
+      },
+      "hamilton": {
+        "site_name": "Hamilton High School",
+        "total_days": 1,
+        "alerts_fired": 1,
+        "recall": 1.0,
+        "daily_data": [
+          {
+            "date": "2023-07-15",
+            "temp_c": 42.24,
+            "alert": true,
+            "policy_level": "black"
+          }
+        ]
+      },
+      "saguaro": {
+        "site_name": "Saguaro High School",
+        "total_days": 1,
+        "alerts_fired": 1,
+        "recall": 1.0,
+        "daily_data": [
+          {
+            "date": "2023-07-15",
+            "temp_c": 42.16,
+            "alert": true,
+            "policy_level": "black"
+          }
+        ]
+      },
+      "corona_del_sol": {
+        "site_name": "Corona del Sol High School",
+        "total_days": 1,
+        "alerts_fired": 1,
+        "recall": 1.0,
+        "daily_data": [
+          {
+            "date": "2023-07-15",
+            "temp_c": 42.4,
+            "alert": true,
+            "policy_level": "black"
+          }
+        ]
+      }
+    }
+  },
+  "null_days": {
+    "mountain_pointe": {
+      "site_name": "Mountain Pointe High School",
+      "total_readings": 2,
+      "false_alarms": 0,
+      "false_alarm_rate": 0.0
+    },
+    "desert_vista": {
+      "site_name": "Desert Vista High School",
+      "total_readings": 2,
+      "false_alarms": 0,
+      "false_alarm_rate": 0.0
+    },
+    "chandler": {
+      "site_name": "Chandler High School",
+      "total_readings": 2,
+      "false_alarms": 0,
+      "false_alarm_rate": 0.0
+    },
+    "hamilton": {
+      "site_name": "Hamilton High School",
+      "total_readings": 2,
+      "false_alarms": 0,
+      "false_alarm_rate": 0.0
+    },
+    "saguaro": {
+      "site_name": "Saguaro High School",
+      "total_readings": 2,
+      "false_alarms": 0,
+      "false_alarm_rate": 0.0
+    },
+    "corona_del_sol": {
+      "site_name": "Corona del Sol High School",
+      "total_readings": 2,
+      "false_alarms": 0,
+      "false_alarm_rate": 0.0
+    }
+  },
+  "cost_delta": {
+    "total_site_days": 6,
+    "naive_cancellations": 6,
+    "heatwatch_reschedules": 6,
+    "cost_naive": 12000,
+    "cost_heatwatch": 1500,
+    "savings": 10500
+  }
+}

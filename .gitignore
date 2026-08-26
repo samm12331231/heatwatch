@@ -1,0 +1,27 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+*.egg-info/
+
+# Data (large, regenerate with fetch_historical.py)
+data/fortyguard/*.json
+data/nws/
+
+# Outputs
+outputs/
+
+# Audit DB (regenerated on each run)
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
