@@ -208,7 +208,7 @@ st.markdown("""
         </div>
     </div>
     <div style="font-size:0.85rem; color:#FEE2E2; margin-top:0.6rem; font-style:italic;">
-        "Heatwatch could have told their coaches to move practice to 7 AM. The data exists. The fix exists. We make it happen."
+        "With Heatwatch, their coaches would have known the safest time to practice. The data exists. The fix exists. We make it happen."
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -221,13 +221,15 @@ st.markdown("---")
 ctrl1, ctrl2, ctrl3 = st.columns([2, 1, 1])
 
 with ctrl1:
-    hour = st.slider(
-        "🕐 Time of Day",
-        min_value=5, max_value=23, value=16, step=1,
-        format_func=lambda h: f"{h:02d}:00",
-        label_visibility="collapsed",
+    hour_options = list(range(5, 24))
+    hour_labels = [f"{h:02d}:00" for h in hour_options]
+    hour_idx = st.select_slider(
+        "Time of Day",
+        options=hour_labels,
+        value="16:00",
     )
-    st.caption(f"Scrubbing through the day — showing **{hour:02d}:00**")
+    hour = int(hour_idx.split(":")[0])
+    st.caption(f"Scrubbing through the day \u2014 showing **{hour:02d}:00**")
 
 with ctrl2:
     day_type = st.radio(
