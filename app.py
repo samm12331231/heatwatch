@@ -7,7 +7,6 @@ Interactive dashboard showing real-time temperature monitoring across
 """
 
 import streamlit as st
-import pydeck as pdk
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -289,47 +288,48 @@ else:
     safe_count = sum(1 for r in readings if r["policy_level"] in ("green", "yellow"))
     st.success(f"✅ **{safe_count}/{n_total} sites within safe limits** at {hour:02d}:00")
 
-# Map
-st.pydeck_chart(
-    pdk.Deck(
-        map_style="mapbox://styles/mapbox/dark-v11",
-        initial_view_state=pdk.ViewState(
-            latitude=33.38,
-            longitude=-111.92,
-            zoom=10,
-            pitch=0,
+# Map — Plotly scatter_mapbox (more reliable than PyDeck on Streamlit Cloud)
+fig_map = go.Figure()
+
+for level_name, level_color in level_colors.items():
+    level_readings = [r for r in readings if r["policy_level"] == level_name]
+    if not level_readings:
+        continue
+    fig_map.add_trace(go.Scattermapbox(
+        lat=[r["lat"] for r in level_readings],
+        lon=[r["lon"] for r in level_readings],
+        mode="markers+text",
+        marker=dict(size=18, color=level_color, opacity=0.9),
+        text=[f"{r['short_name']}\n{r['temp_c']:.1f}°C" for r in level_readings],
+        textposition="top center",
+        textfont=dict(size=11, color="white"),
+        name=f"{level_name.upper()} ({len(level_readings)})",
+        hovertemplate=(
+            "<b>%{text}</b><br>"
+            "Heat Index: %{customdata[0]:.1f}°C<br>"
+            "Level: %{customdata[1]}<extra></extra>"
         ),
-        layers=[
-            pdk.Layer(
-                "ScatterplotLayer",
-                data=map_df,
-                get_position="[lon, lat]",
-                get_radius="size",
-                get_fill_color="[color.slice(1).match(/../g).map(x => parseInt(x, 16)).concat([200])]",
-                pickable=True,
-                auto_highlight=True,
-            ),
-            pdk.Layer(
-                "TextLayer",
-                data=map_df,
-                get_position="[lon, lat]",
-                get_text="site",
-                get_size=14,
-                get_color=[255, 255, 255, 255],
-                get_alignment_baseline="'bottom'",
-                get_pixel_offset=[0, -40],
-            ),
-        ],
-        tooltip={
-            "html": "<b>{site}</b><br>"
-                    "Temp: {temp}<br>"
-                    "Heat Index: {hi}<br>"
-                    "Level: {level}",
-            "style": {"backgroundColor": "#1E293B", "color": "#E2E8F0",
-                      "fontSize": "14px", "padding": "8px"},
-        },
-    )
+        customdata=[[r["heat_index_c"], r["policy_level"].upper()] for r in level_readings],
+    ))
+
+fig_map.update_layout(
+    mapbox=dict(
+        style="carto-darkmatter",
+        center=dict(lat=33.38, lon=-111.92),
+        zoom=10,
+    ),
+    height=450,
+    margin=dict(l=0, r=0, t=0, b=0),
+    legend=dict(
+        orientation="h", yanchor="bottom", y=-0.05, xanchor="center", x=0.5,
+        font=dict(size=12),
+    ),
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
 )
+
+st.plotly_chart(fig_map, use_container_width=True)
+
 
 
 # ============================================================
