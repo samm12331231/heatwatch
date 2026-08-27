@@ -288,29 +288,24 @@ else:
     safe_count = sum(1 for r in readings if r["policy_level"] in ("green", "yellow"))
     st.success(f"✅ **{safe_count}/{n_total} sites within safe limits** at {hour:02d}:00")
 
-# Map — Plotly scatter_mapbox (more reliable than PyDeck on Streamlit Cloud)
-fig_map = go.Figure()
+# Map — st.map (reliable on all Streamlit versions)
+map_df = pd.DataFrame([{
+    "lat": r["lat"],
+    "lon": r["lon"],
+    "size": max(80, min(200, int(r["heat_index_c"] * 4))),
+} for r in readings])
 
-for level_name, level_color in level_colors.items():
-    level_readings = [r for r in readings if r["policy_level"] == level_name]
-    if not level_readings:
-        continue
-    fig_map.add_trace(go.Scattermapbox(
-        lat=[r["lat"] for r in level_readings],
-        lon=[r["lon"] for r in level_readings],
-        mode="markers+text",
-        marker=dict(size=18, color=level_color, opacity=0.9),
-        text=[f"{r['short_name']}\n{r['temp_c']:.1f}°C" for r in level_readings],
-        textposition="top center",
-        textfont=dict(size=11, color="white"),
-        name=f"{level_name.upper()} ({len(level_readings)})",
-        hovertemplate=(
-            "<b>%{text}</b><br>"
-            "Heat Index: %{customdata[0]:.1f}°C<br>"
-            "Level: %{customdata[1]}<extra></extra>"
-        ),
-        customdata=[[r["heat_index_c"], r["policy_level"].upper()] for r in level_readings],
-    ))
+st.map(map_df, zoom=10, use_container_width=True)
+
+# Site labels below map
+label_cols = st.columns(6)
+for i, r in enumerate(readings):
+    with label_cols[i]:
+        level = r["policy_level"]
+        icon = {"black": "⚫", "red": "🔴", "orange": "🟠", "yellow": "🟡", "green": "🟢"}.get(level, "⚪")
+        st.markdown(f"**{icon} {r['short_name']}**<br>{r['temp_c']:.1f}°C · {level.upper()}", unsafe_allow_html=True)
+
+
 
 fig_map.update_layout(
     mapbox=dict(
