@@ -4,6 +4,7 @@ numpy
 matplotlib
 plotly
 streamlit
+pydeck
 requests
 tenacity
 openai
