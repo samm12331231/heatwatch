@@ -307,23 +307,7 @@ for i, r in enumerate(readings):
 
 
 
-fig_map.update_layout(
-    mapbox=dict(
-        style="carto-darkmatter",
-        center=dict(lat=33.38, lon=-111.92),
-        zoom=10,
-    ),
-    height=450,
-    margin=dict(l=0, r=0, t=0, b=0),
-    legend=dict(
-        orientation="h", yanchor="bottom", y=-0.05, xanchor="center", x=0.5,
-        font=dict(size=12),
-    ),
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-)
 
-st.plotly_chart(fig_map, use_container_width=True)
 
 
 
