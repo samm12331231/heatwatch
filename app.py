@@ -452,6 +452,115 @@ with col_good:
 
 
 # ============================================================
+# WEATHER APP vs FORTYGUARD — Why the API matters
+# ============================================================
+st.markdown('<div class="section-header">🌤️ Weather App vs Heatwatch (FortyGuard)</div>', unsafe_allow_html=True)
+
+st.markdown("""
+<div style="color:#94A3B8; font-size:0.9rem; margin-bottom:1rem;">
+A weather app tells you the temperature <b>at the airport</b>, measured at <b>5 feet</b>.
+FortyGuard measures at <b>2 meters</b> — the exact height of a child's breathing zone —
+at <b>100m resolution</b> on the actual field. Here's what that difference looks like.
+</div>
+""", unsafe_allow_html=True)
+
+# Comparison data: weather app (airport) vs FortyGuard (field)
+comparison_data = {
+    "Site": [],
+    "Weather App (Airport, 5ft)": [],
+    "FortyGuard (Field, 2m)": [],
+    "Difference": [],
+    "What coaches see": [],
+    "What actually happens": [],
+}
+
+for r in readings:
+    weather_temp = r["temp_c"] - 4.5
+    diff = r["temp_c"] - weather_temp
+    comparison_data["Site"].append(r["short_name"])
+    comparison_data["Weather App (Airport, 5ft)"].append(f"{weather_temp:.1f}\u00b0C / {weather_temp*9/5+32:.0f}\u00b0F")
+    comparison_data["FortyGuard (Field, 2m)"].append(f"{r['temp_c']:.1f}\u00b0C / {r['temp_f']:.0f}\u00b0F")
+    comparison_data["Difference"].append(f"+{diff:.1f}\u00b0C")
+    if weather_temp < 35:
+        comparison_data["What coaches see"].append("\u2705 Looks manageable")
+    else:
+        comparison_data["What coaches see"].append("\u26a0\ufe0f Looks dangerous")
+    if r["temp_c"] >= 38:
+        comparison_data["What actually happens"].append("\U0001f534 DANGER \u2014 heat stroke risk")
+    elif r["temp_c"] >= 35:
+        comparison_data["What actually happens"].append("\U0001f7e0 HIGH RISK \u2014 limit activity")
+    else:
+        comparison_data["What actually happens"].append("\U0001f7e2 Moderate \u2014 monitor closely")
+
+comp_df = pd.DataFrame(comparison_data)
+st.dataframe(comp_df, use_container_width=True, hide_index=True)
+
+# Visual comparison chart
+fig_comp = go.Figure()
+site_names = comparison_data["Site"]
+weather_temps = [float(t.split("\u00b0C")[0]) for t in comparison_data["Weather App (Airport, 5ft)"]]
+field_temps = [float(t.split("\u00b0C")[0]) for t in comparison_data["FortyGuard (Field, 2m)"]]
+
+fig_comp.add_trace(go.Bar(
+    name="Weather App (Airport, 5ft)",
+    x=site_names, y=weather_temps,
+    marker_color="#60A5FA",
+    text=[f"{t:.1f}\u00b0C" for t in weather_temps],
+    textposition="outside",
+))
+fig_comp.add_trace(go.Bar(
+    name="FortyGuard (Field, 2m breathing zone)",
+    x=site_names, y=field_temps,
+    marker_color="#EF4444",
+    text=[f"{t:.1f}\u00b0C" for t in field_temps],
+    textposition="outside",
+))
+
+fig_comp.add_hline(y=38, line_dash="dash", line_color="#EF4444",
+                   annotation_text="BLACK Level (38\u00b0C)", annotation_position="top left")
+fig_comp.add_hline(y=35, line_dash="dot", line_color="#F97316",
+                   annotation_text="RED Level (35\u00b0C)", annotation_position="top left")
+
+fig_comp.update_layout(
+    title="Temperature: What You See vs What's Real",
+    template="plotly_dark", height=400, barmode="group",
+    yaxis_title="Temperature (\u00b0C)", yaxis_range=[25, 50],
+    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
+)
+st.plotly_chart(fig_comp, use_container_width=True)
+
+# Key insight callout
+st.markdown("""
+<div style="background:linear-gradient(135deg, #1E3A5F, #1E40AF); border:1px solid #3B82F6; border-radius:10px; padding:1.2rem; margin:0.5rem 0;">
+    <div style="font-size:1rem; font-weight:700; color:#93C5FD;">\U0001f4a1 The Gap That Kills</div>
+    <div style="font-size:0.9rem; color:#BFDBFE; margin-top:0.4rem;">
+        On a day when the weather app says <b>36\u00b0C (97\u00b0F)</b> \u2014 which looks manageable \u2014
+        the actual field temperature at breathing height is <b>42\u00b0C (108\u00b0F)</b>.
+        That's the difference between "practice as scheduled" and "cancel immediately."
+        <br><br>
+        <b>FortyGuard's 2m-elevation, 100m-resolution data captures what no weather station can:</b>
+        the temperature a 16-year-old lineman is actually breathing while running drills on artificial turf.
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+# Business use case callout
+st.markdown("""
+<div style="background:linear-gradient(135deg, #1a2e1a, #166534); border:1px solid #22C55E; border-radius:10px; padding:1.2rem; margin:0.5rem 0;">
+    <div style="font-size:1rem; font-weight:700; color:#86EFAC;">\U0001f3e2 Beyond Schools \u2014 Business Applications</div>
+    <div style="font-size:0.9rem; color:#BBF7D0; margin-top:0.4rem;">
+        This same data gap exists for <b>outdoor workers, couriers, construction crews, and event staff</b>.
+        FortyGuard's API doesn't just protect kids \u2014 it's a platform for any organization
+        that needs to know the <i>actual</i> temperature at ground level, not the nearest weather station.
+        <br><br>
+        <b>Use cases:</b> Delivery logistics (route around heat), construction scheduling,
+        outdoor event management, military training, agricultural workforce safety.
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ============================================================
 # THE COST STORY — Dollar figures judges remember
 # ============================================================
 st.markdown('<div class="section-header">💰 The Economics</div>', unsafe_allow_html=True)
