@@ -185,6 +185,34 @@ with col_stat:
 
 
 
+
+
+# ============================================================
+# 2026 INCIDENTS — This is happening RIGHT NOW
+# ============================================================
+st.markdown("""
+<div style="background:linear-gradient(135deg, #7F1D1D, #991B1B); border:1px solid #EF4444; border-radius:10px; padding:1rem 1.5rem; margin:0.5rem 0;">
+    <div style="font-size:0.8rem; color:#FCA5A5; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.4rem;">⚠️ This is not hypothetical — these are this month's headlines</div>
+    <div style="display:flex; gap:2rem; flex-wrap:wrap;">
+        <div style="flex:1; min-width:200px;">
+            <div style="font-size:1.1rem; font-weight:700; color:#FCA5A5;">Rylan Reece, 17</div>
+            <div style="font-size:0.8rem; color:#FECACA;">Collapsed and died on first day of school practice — Pawnee Heights, Kansas · <b>August 19, 2026</b></div>
+        </div>
+        <div style="flex:1; min-width:200px;">
+            <div style="font-size:1.1rem; font-weight:700; color:#FCA5A5;">14-year-old lineman</div>
+            <div style="font-size:0.8rem; color:#FECACA;">Airlifted to children's hospital — Rison, Arkansas · <b>July 2026</b></div>
+        </div>
+        <div style="flex:1; min-width:200px;">
+            <div style="font-size:1.1rem; font-weight:700; color:#FCA5A5;">Lux Smith, freshman</div>
+            <div style="font-size:0.8rem; color:#FECACA;">Collapsed, unresponsive at practice — Ruston, Louisiana · <b>June 2026</b></div>
+        </div>
+    </div>
+    <div style="font-size:0.85rem; color:#FEE2E2; margin-top:0.6rem; font-style:italic;">
+        "Heatwatch could have told their coaches to move practice to 7 AM. The data exists. The fix exists. We make it happen."
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
 # ============================================================
 # CONTROLS — Time slider + Day selector
 # ============================================================
