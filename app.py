@@ -164,18 +164,25 @@ with col_title:
     st.markdown('<div class="hero-title">🔥 Heatwatch</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="hero-sub">Autonomous heat-safety agent for football programs. '
-        'Monitors breathing-zone temperature across 6 facilities. '
-        'Predicts danger 12 hours ahead. Moves practice before anyone has to check.</div>',
+        'Monitors 2m breathing-zone temperature across 6 Phoenix-area facilities. '
+        'Predicts danger 12 hours ahead. Moves practice before anyone has to check. '
+        'Every decision logged as a tamper-proof legal record.</div>',
         unsafe_allow_html=True,
     )
 
 with col_stat:
-    st.markdown('<div class="hero-stat">67</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="hero-stat_label">Athletes died from heat stroke<br>'
-        '1982–2022 · 94% played football · 52% died in August</div>',
-        unsafe_allow_html=True,
+    hero_stats = (
+        '<div style="text-align:right;">'
+        '<div style="font-size:2.2rem;font-weight:900;color:#EF4444;line-height:1;">9,000</div>'
+        '<div style="font-size:0.75rem;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;">athletes hospitalized every year</div>'
+        '<div style="font-size:2.2rem;font-weight:900;color:#F97316;line-height:1.2;margin-top:0.3rem;">11×</div>'
+        '<div style="font-size:0.75rem;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;">more dangerous than any other sport</div>'
+        '<div style="font-size:2.2rem;font-weight:900;color:#F59E0B;line-height:1.2;margin-top:0.3rem;">$4.8M</div>'
+        '<div style="font-size:0.75rem;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;">jury verdict vs school district (Jul 2026)</div>'
+        '</div>'
     )
+    st.markdown(hero_stats, unsafe_allow_html=True)
+
 
 
 # ============================================================
