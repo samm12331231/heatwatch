@@ -127,22 +127,8 @@ for site in SITES:
     })
 
 
-def get_heat_index(temp_c: float, humidity_pct: float) -> float:
-    """Compute heat index (Rothfusz formula)."""
-    temp_f = temp_c * 9 / 5 + 32
-    if temp_f < 80:
-        hi_f = 0.5 * (temp_f + 61.0 + ((temp_f - 68.0) * 1.2) + (humidity_pct * 0.094))
-    else:
-        hi_f = (
-            -42.379 + 2.04901523 * temp_f + 10.14333127 * humidity_pct
-            - 0.22475541 * temp_f * humidity_pct
-            - 0.00683783 * temp_f * temp_f
-            - 0.05481717 * humidity_pct * humidity_pct
-            + 0.00122874 * temp_f * temp_f * humidity_pct
-            + 0.00085282 * temp_f * humidity_pct * humidity_pct
-            - 0.00000199 * temp_f * temp_f * humidity_pct * humidity_pct
-        )
-    return round((hi_f - 32) * 5 / 9, 2)
+# Import the canonical heat index from core_engine (single source of truth)
+from core_engine import compute_heat_index as get_heat_index
 
 
 def get_policy_level(heat_index_c: float) -> str:
@@ -164,9 +150,14 @@ def get_policy_level(heat_index_c: float) -> str:
 
 
 def get_humidity_for_hour(hour: int) -> float:
-    """Time-appropriate humidity estimate for Phoenix."""
+    """Time-appropriate humidity estimate for Phoenix.
+
+    NOTE: Morning values raised to 40% per NWS climatology and
+    conservative safety practice (Perplexity review recommendation).
+    Higher humidity = higher WBGT = more conservative estimate.
+    """
     if hour < 11:
-        return 35.0
+        return 40.0  # Conservative morning estimate
     elif hour < 15:
         return 15.0
     return 12.0

@@ -247,7 +247,7 @@ SAMPLE_SCHEDULE = [
 PHOENIX_HUMIDITY = {
     "month": 8,
     "avg_relative_humidity_pct": 20.0,   # Phoenix in August is very dry
-    "morning_humidity_pct": 35.0,         # Higher at dawn
+    "morning_humidity_pct": 40.0,         # Conservative: NWS climatology + safety margin
     "midday_humidity_pct": 15.0,
     "afternoon_humidity_pct": 12.0,
 }

@@ -19,18 +19,18 @@ from site_data import SITE_INFO, HEAT_DAY_CURVES, NULL_DAY_CURVES, get_all_site_
 st.markdown("""
 <style>
     #MainMenu, header, footer, .stDeployButton {visibility: hidden;}
-    .block-container {padding-top: 0.3rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important;}
+    .block-container {padding-top: 0.5rem !important; padding-bottom: 1rem !important; max-width: 1440px !important; padding-left: 2rem !important; padding-right: 2rem !important;}
     .hero-title {font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #F7C948); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
     .hero-sub {font-size: 0.85rem; color: #94A3B8;}
     .stat-num {font-size: 1.4rem; font-weight: 900; line-height: 1;}
     .stat-lbl {font-size: 0.6rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em;}
-    .card {background: #1E293B; border: 1px solid #334155; border-radius: 8px; padding: 0.6rem; text-align: center; min-height: 120px;}
+    .card {background: #1E293B; border: 1px solid #334155; border-radius: 14px; padding: 1rem; text-align: center; min-height: 130px;}
     .card:hover {border-color: #60A5FA;}
     .card-name {font-size: 0.75rem; color: #CBD5E1; font-weight: 600;}
     .card-temp {font-size: 1.8rem; font-weight: 800; line-height: 1.1;}
     .card-hi {font-size: 0.7rem; color: #64748B;}
     .card-action {font-size: 0.7rem; font-weight: 700; margin-top: 0.3rem;}
-    .badge {display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase;}
+    .badge {display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;}
     .badge-black {background: #1F1F1F; color: #EF4444; border: 1px solid #EF4444;}
     .badge-red {background: #7F1D1D; color: #FCA5A5;}
     .badge-orange {background: #7C2D12; color: #FDBA74;}
@@ -48,7 +48,7 @@ st.markdown("""
 
 # Colors
 LC = {"black": "#EF4444", "red": "#F97316", "orange": "#F59E0B", "yellow": "#EAB308", "green": "#22C55E"}
-LL = {"black": "BLACK", "red": "RED", "orange": "ORANGE", "yellow": "YELLOW", "green": "GREEN"}
+LL = {"black": "CRITICAL", "red": "RED", "orange": "ORANGE", "yellow": "YELLOW", "green": "SAFE"}
 
 def get_readings(hour, day_key): return get_all_site_readings(hour, day_key)
 def danger_count(r): return sum(1 for x in r if x["alert"])
@@ -60,16 +60,15 @@ def badge(level): return f'<span class="badge badge-{level}">{LL.get(level, leve
 col_title, col_stats = st.columns([3, 1])
 with col_title:
     st.markdown('<div class="hero-title">🔥 Heatwatch</div>', unsafe_allow_html=True)
-    st.markdown('<div class="hero-sub">Forecast → Detect → Reschedule → Verify</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-sub">Autonomous heat-safety agent for Phoenix-area athletics</div>', unsafe_allow_html=True)
 with col_stats:
     st.markdown(
         '<div style="text-align:right;">'
-        '<div><span class="stat-num" style="color:#EF4444;">9,000</span> <span class="stat-lbl">treated/yr (CDC)</span></div>'
-        '<div><span class="stat-num" style="color:#F97316;">10×</span> <span class="stat-lbl">football vs other sports</span></div>'
-        '<div><span class="stat-num" style="color:#F59E0B;">$4.8M</span> <span class="stat-lbl">verdict Jul 2026</span></div>'
+        '<div><span class="stat-num" style="color:#EF4444;">6</span> <span class="stat-lbl">FIELDS MONITORED</span></div>'
+        '<div><span class="stat-num" style="color:#F59E0B;">12h</span> <span class="stat-lbl">LOOKAHEAD</span></div>'
         '</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="source-tag">🟡 REPLAY — July 15, 2023 FortyGuard API · interpolated between 12:00 & 16:00 observations</div>', unsafe_allow_html=True)
+st.markdown('<div class="source-tag">🟡 Historical scenario · July 15, 2023 · FortyGuard observations at 12 PM & 4 PM · hours between estimated</div>', unsafe_allow_html=True)
 
 # Controls — visible at top
 ctrl1, ctrl2, ctrl3 = st.columns([3, 1, 1])
@@ -82,7 +81,7 @@ with ctrl2:
     is_heat = "Heat" in day_type
 with ctrl3:
     st.markdown("<div style='height: 1.8rem'></div>", unsafe_allow_html=True)
-    run_agent = st.button("▶ Run Agent", type="primary", use_container_width=True)
+    run_agent = st.button("▶ Run Safety Check", type="primary", use_container_width=True)
 
 day_key = "heat" if is_heat else "null"
 readings = get_readings(hour, day_key)
@@ -99,8 +98,7 @@ if n_danger > 0:
         <div class="action-title" style="color:#FCA5A5;">⚠️ ACTION REQUIRED — {n_danger}/6 practices unsafe at {hour:02d}:00</div>
         <div class="action-detail" style="color:#FECACA;">
             <b>What to do:</b> Move practice to 7:00 AM when {safe_count}/6 fields are safe.
-            <b>Why:</b> Current temps are {readings[0]['temp_f']:.0f}°F — above the 100.4°F BLACK threshold.
-            <b>Cost of doing nothing:</b> $50,000+ liability per incident.
+            <b>Why:</b> Current temps are {readings[0]['temp_f']:.0f}°F — CRITICAL level. DO NOT PRACTICE outdoors.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -126,7 +124,7 @@ if run_agent:
 # ============================================================
 # TABS
 # ============================================================
-tab_monitor, tab_analysis, tab_report, tab_audit = st.tabs(["🗺️ Monitor", "📊 Analysis", "📋 Schedule", "🔍 Audit"])
+tab_monitor, tab_analysis, tab_report, tab_audit = st.tabs(["Monitor", "Analysis", "Schedule", "Audit"])
 
 # ============================================================
 # TAB 1: MONITOR — What should the coach do?

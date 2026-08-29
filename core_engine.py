@@ -63,11 +63,17 @@ def compute_heat_index(temp_c: float, humidity_pct: float) -> float:
 # ============================================================
 
 def check_policy_threshold(heat_index_c: float) -> str:
-    """Check heat index against named policy thresholds. Returns level string."""
+    """Check heat index against named policy thresholds. Returns level string.
+
+    NOTE: Current AIA policy (2026-2027) uses WBGT, not heat index.
+    We use heat index as a proxy because FortyGuard provides temperature,
+    not WBGT. In production, on-field WBGT sensors would be the primary gate.
+    """
     thresholds = HEAT_POLICY["thresholds"]
     for level in ("black", "red", "orange", "yellow"):
         if heat_index_c >= thresholds[level]["max_heat_index_c"]:
             return level
+    # Green: anything below yellow threshold (30°C / 86°F)
     return "green"
 
 
@@ -230,7 +236,19 @@ def skeptic_check(site_temps: dict, current_temp: float, forecast_temp: float,
 
 def reschedule(activity: dict, morning_temp: float, midday_temp: float,
                afternoon_temp: float, current_bucket: str) -> dict:
-    """Move activity to the coolest safe time bucket."""
+    """Move activity to the coolest safe time bucket.
+
+    Compares HEAT INDEX (not raw temp) against policy thresholds,
+    consistent with check_policy_threshold.
+    """
+    # Convert raw temps to heat index for fair comparison
+    bucket_hi = {}
+    for b, t in [("morning", morning_temp), ("midday", midday_temp), ("afternoon", afternoon_temp)]:
+        hour_map = {"morning": 9, "midday": 13, "afternoon": 16}
+        h = hour_map[b]
+        rh = 35.0 if h < 11 else (15.0 if h < 15 else 12.0)
+        bucket_hi[b] = compute_heat_index(t, rh)
+
     bucket_temps = {
         "morning": morning_temp,
         "midday": midday_temp,
@@ -239,7 +257,7 @@ def reschedule(activity: dict, morning_temp: float, midday_temp: float,
     red_threshold = HEAT_POLICY["thresholds"]["red"]["max_heat_index_c"]
 
     safe_buckets = [
-        (b, t) for b, t in bucket_temps.items() if t < red_threshold
+        (b, t) for b, t in bucket_hi.items() if t < red_threshold
     ]
 
     if not safe_buckets:
@@ -563,6 +581,13 @@ class CoreEngine:
         print(f"   Action: {reschedule_result['action']}")
         print(f"   {reschedule_result['reason']}")
 
+        # Pre-compute skeptic result (avoids self-reference crash)
+        skeptic = skeptic_check(
+            site_temps=all_site_temps or {site_id: temperature_c},
+            current_temp=temperature_c,
+            forecast_temp=bucket_temps.get("afternoon", temperature_c),
+        )
+
         # Build decision record
         decision = {
             "timestamp": datetime.now().isoformat(),
@@ -577,12 +602,7 @@ class CoreEngine:
             "policy_action": policy_action,
             "alert_decision": cost_analysis["recommendation"],
             "cost_analysis": cost_analysis,
-            "skeptic_result": skeptic_check(
-                site_temps=all_site_temps or {site_id: temperature_c},
-                current_temp=temperature_c,
-                forecast_temp=bucket_temps.get("afternoon", temperature_c),
-                api_timestamp=decision.get("api_timestamp"),
-            ),
+            "skeptic_result": skeptic,
             "reschedule_action": reschedule_result["action"],
             "reschedule_detail": reschedule_result["reason"],
             "bucket_temps": {k: round(v, 2) for k, v in bucket_temps.items()},
