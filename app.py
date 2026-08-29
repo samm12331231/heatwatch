@@ -116,11 +116,10 @@ else:
 
 # Agent activity — compact one-liner
 if run_agent:
+    flag_text = f"{n_danger} flagged · " if n_danger > 0 else ""
     st.markdown(
-        '<div style="background:#1E293B;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.8rem;font-size:0.7rem;color:#22C55E;margin:0.3rem 0;">'
-        '✓ 6 facilities queried · 18 windows evaluated · '
-        + (f'{n_danger} practices flagged · ' if n_danger > 0 else '') +
-        'notifications drafted · audit chain committed</div>',
+        f'<div style="background:#1E293B;border:1px solid #334155;border-radius:6px;padding:0.3rem 0.6rem;font-size:0.65rem;color:#22C55E;margin:0.2rem 0;">'
+        f'✓ 6 facilities · 18 windows · {flag_text}notifications drafted · audit committed</div>',
         unsafe_allow_html=True
     )
 

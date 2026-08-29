@@ -85,7 +85,7 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
             hi = get_heat_index(temp_c, humidity)
             level = get_policy_level(hi)
             row_z.append(hi)
-            row_text.append(f"{level.upper()} {temp_c:.0f}°C")
+            row_text.append(f"{temp_c:.0f}°C")
         z.append(row_z)
         text.append(row_text)
 
@@ -100,7 +100,7 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
             [1.0, "#EF4444"],   # black
         ],
         zmin=25, zmax=42,
-        textfont={"size": 13, "color": "white"},
+        textfont={"size": 10, "color": "white", "family": "Arial, sans-serif"},
         colorbar=dict(
             title="Heat Index (°C)",
             tickvals=[27, 30, 32, 35, 38],
@@ -109,11 +109,12 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
     ))
 
     fig.update_layout(
-        title=f"📅 Practice Window Risk Matrix — {site_name}",
+        title=f"Practice Window Risk Matrix — {site_name}",
         xaxis_title="Time of Day",
         yaxis_title="Day of Week",
         template="plotly_dark",
-        height=350,
+        height=320,
+        margin=dict(l=60, r=20, t=50, b=40),
     )
 
     # Add threshold lines
