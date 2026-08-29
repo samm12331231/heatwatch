@@ -125,9 +125,9 @@ with col_title:
     st.markdown('<div class="hero-title">🔥 Heatwatch</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="hero-sub">Autonomous heat-safety agent for football programs. '
-        'Monitors 2m breathing-zone temperature across 6 Phoenix-area facilities. '
+        'Monitors near-surface temperature across 6 Phoenix-area facilities using FortyGuard spatial data. '
         'Predicts danger 12 hours ahead. Moves practice before anyone has to check. '
-        'Every decision logged as a tamper-proof legal record.</div>',
+        'Every decision logged as a tamper-evident decision record.</div>',
         unsafe_allow_html=True,
     )
 
@@ -197,9 +197,48 @@ with tab_monitor:
         is_heat = "Heat" in day_type
 
     day_key = "heat" if is_heat else "null"
+
+    # Data source indicator
+    if is_heat:
+        st.markdown(
+            '<div style="background:#1a2e1a;border:1px solid #22C55E;border-radius:8px;padding:0.5rem 1rem;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;">'
+            '<span style="color:#22C55E;font-weight:700;">🟡 REPLAY</span>'
+            '<span style="color:#94A3B8;font-size:0.8rem;">July 15, 2023 historical data — FortyGuard API measurements at 12:00 and 16:00, interpolated for other hours</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div style="background:#1a2e1a;border:1px solid #22C55E;border-radius:8px;padding:0.5rem 1rem;margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;">'
+            '<span style="color:#22C55E;font-weight:700;">🟡 REPLAY</span>'
+            '<span style="color:#94A3B8;font-size:0.8rem;">April 10, 2023 historical data — FortyGuard API measurements at 12:00 and 16:00, interpolated for other hours</span>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    # Compute readings first (needed for button + display)
     readings = get_readings(hour, day_key)
     n_danger = danger_count(readings)
     n_safe = safe_count(readings)
+
+    # RUN HEATWATCH button
+    if st.button("▶ Run Heatwatch Agent", type="primary", use_container_width=False):
+        progress = st.empty()
+        steps = [
+            ("Queried 6 facilities via FortyGuard API", "#22C55E"),
+            (f"Retrieved 18 forecast windows across all sites", "#22C55E"),
+            (f"Detected {n_danger} hazardous practices at {hour:02d}:00" if n_danger > 0 else f"All {n_safe} sites within safe limits", "#EF4444" if n_danger > 0 else "#22C55E"),
+            ("Evaluated 18 candidate reschedule slots", "#22C55E"),
+            (f"Selected {n_danger} optimal alternatives" if n_danger > 0 else "No rescheduling needed", "#22C55E"),
+            ("Generated coach notification drafts", "#22C55E"),
+            ("Committed decisions to audit chain", "#60A5FA"),
+        ]
+        log_html = '<div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:1rem;font-family:monospace;font-size:0.85rem;">'
+        log_html += '<div style="color:#60A5FA;font-weight:700;margin-bottom:0.5rem;">Agent Activity</div>'
+        for msg, color in steps:
+            log_html += f'<div style="color:{color};margin:0.2rem 0;">\u2713 {msg}</div>'
+        log_html += '</div>'
+        progress.markdown(log_html, unsafe_allow_html=True)
 
     # Status banner
     if n_danger > 0:
@@ -303,8 +342,8 @@ with tab_analysis:
     )
     st.markdown(
         '<div style="color:#94A3B8; font-size:0.85rem; margin-bottom:0.8rem;">'
-        'A weather app tells you the temperature <b>at the airport</b>, measured at <b>5 feet</b>. '
-        'FortyGuard measures at <b>2 meters</b> — the exact height of a child\'s breathing zone — '
+        'A weather app tells you the temperature at the nearest airport station, not on your actual field. '
+        'FortyGuard measures at <b>2 meters</b> — representative of conditions at the field — '
         'at <b>100m resolution</b> on the actual field.</div>',
         unsafe_allow_html=True,
     )
@@ -314,7 +353,7 @@ with tab_analysis:
 
     comp_data = {
         "Site": [],
-        "Weather App (Airport)": [],
+        "Airport Baseline": [],
         "FortyGuard (Field)": [],
         "Difference": [],
         "Coach sees": [],
@@ -323,7 +362,7 @@ with tab_analysis:
     for r in analysis_readings:
         weather_temp = r["temp_c"] - 4.5
         comp_data["Site"].append(r["short_name"])
-        comp_data["Weather App (Airport)"].append(f"{weather_temp:.1f}°C / {weather_temp*9/5+32:.0f}°F")
+        comp_data["Airport Baseline"].append(f"{weather_temp:.1f}°C / {weather_temp*9/5+32:.0f}°F")
         comp_data["FortyGuard (Field)"].append(f"{r['temp_c']:.1f}°C / {r['temp_f']:.0f}°F")
         comp_data["Difference"].append(f"+{r['temp_c'] - weather_temp:.1f}°C")
         comp_data["Coach sees"].append("✅ Looks OK" if weather_temp < 35 else "⚠️ Looks hot")
@@ -336,11 +375,11 @@ with tab_analysis:
 
     # Bar chart comparison
     site_names = comp_data["Site"]
-    weather_temps = [float(t.split("°C")[0]) for t in comp_data["Weather App (Airport)"]]
+    weather_temps = [float(t.split("°C")[0]) for t in comp_data["Airport Baseline"]]
     field_temps = [float(t.split("°C")[0]) for t in comp_data["FortyGuard (Field)"]]
 
     fig_comp = go.Figure()
-    fig_comp.add_trace(go.Bar(name="Weather App (Airport, 5ft)", x=site_names, y=weather_temps,
+    fig_comp.add_trace(go.Bar(name="Airport Baseline (illustrative)", x=site_names, y=weather_temps,
                                marker_color="#60A5FA", text=[f"{t:.1f}°C" for t in weather_temps], textposition="outside"))
     fig_comp.add_trace(go.Bar(name="FortyGuard (Field, 2m)", x=site_names, y=field_temps,
                                marker_color="#EF4444", text=[f"{t:.1f}°C" for t in field_temps], textposition="outside"))

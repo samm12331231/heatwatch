@@ -109,7 +109,7 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
     ))
 
     fig.update_layout(
-        title=f"📅 Weekly Risk Forecast — {site_name}",
+        title=f"📅 Practice Window Risk Matrix — {site_name}",
         xaxis_title="Time of Day",
         yaxis_title="Day of Week",
         template="plotly_dark",

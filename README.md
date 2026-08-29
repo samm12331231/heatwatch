@@ -2,7 +2,7 @@
 
 **A heat-safety agent for high school and college football programs.**
 
-Heatwatch monitors athletic facilities using FortyGuard's 2m-elevation (breathing-zone) temperature data, predicts dangerous heat 12 hours ahead, moves practice to safer times, and logs every check as a timestamped liability record.
+Heatwatch monitors athletic facilities using FortyGuard's 2m-elevation (near-surface) temperature data, predicts dangerous heat 12 hours ahead, moves practice to safer times, and logs every check as a timestamped liability record.
 
 ## The Problem
 
@@ -12,7 +12,7 @@ Heatwatch monitors athletic facilities using FortyGuard's 2m-elevation (breathin
 
 Heatwatch closes the gap between "the fix exists" and "fix actually happens":
 
-1. **Detect** — monitors 6 Phoenix-area football fields using FortyGuard's breathing-zone temperature data
+1. **Detect** — monitors 6 Phoenix-area football fields using FortyGuard's near-surface temperature data
 2. **Verify** — skeptic pass checks spatial corroboration, data freshness, and forecast confidence
 3. **Reschedule** — moves practice to cooler time slots when danger is predicted
 4. **Document** — logs every check, alert, and action as a timestamped liability record
