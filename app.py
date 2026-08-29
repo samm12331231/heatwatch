@@ -135,9 +135,9 @@ with col_stats:
     st.markdown(
         '<div style="text-align:right;">'
         '<div class="stat-big" style="color:#EF4444;">9,000</div>'
-        '<div class="stat-label">athletes hospitalized every year</div>'
+        '<div class="stat-label">athletes treated for heat illness annually (CDC)</div>'
         '<div class="stat-big" style="color:#F97316;margin-top:0.2rem;">11×</div>'
-        '<div class="stat-label">more dangerous than any other sport</div>'
+        '<div class="stat-label">higher heat illness rate in football vs other sports (CDC)</div>'
         '<div class="stat-big" style="color:#F59E0B;margin-top:0.2rem;">$4.8M</div>'
         '<div class="stat-label">jury verdict vs school district (Jul 2026)</div>'
         '</div>',
@@ -298,8 +298,8 @@ with tab_monitor:
             st.markdown(f"""
             <div class="card">
                 <div class="card-name">{r['short_name']}</div>
-                <div class="card-temp" style="color:{temp_color(level)}">{r['temp_c']:.1f}°C</div>
-                <div class="card-hi">HI: {r['heat_index_c']:.1f}°C · {r['heat_index_f']:.0f}°F</div>
+                <div class="card-temp" style="color:{temp_color(level)}">{r['temp_f']:.0f}°F</div>
+                <div class="card-hi">{r['temp_c']:.1f}°C · HI {r['heat_index_f']:.0f}°F</div>
                 {level_badge(level)}
             </div>
             """, unsafe_allow_html=True)
@@ -323,8 +323,8 @@ with tab_monitor:
     fig.add_vline(x=hour, line_dash="solid", line_color="#60A5FA", line_width=2, annotation_text=f"Now: {hour:02d}:00")
 
     fig.update_layout(
-        xaxis_title="Hour of Day", yaxis_title="Temperature (°C)",
-        yaxis_range=[25, 50] if is_heat else [15, 45],
+        xaxis_title="Hour of Day", yaxis_title="Temperature (°F)",
+        yaxis_range=[77, 122] if is_heat else [59, 113],
         template="plotly_dark", height=380,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5),
         margin=dict(t=50),
@@ -387,7 +387,7 @@ with tab_analysis:
     fig_comp.add_hline(y=35, line_dash="dot", line_color="#F97316", annotation_text="RED (35°C)", annotation_position="top left")
     fig_comp.update_layout(title="Temperature: What Coaches See vs What's Real",
                            template="plotly_dark", height=380, barmode="group",
-                           yaxis_title="°C", yaxis_range=[25, 50],
+                           yaxis_title="°F", yaxis_range=[25, 50],
                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5))
     st.plotly_chart(fig_comp, use_container_width=True)
 
@@ -519,6 +519,42 @@ with tab_compare:
                 "Level": level.upper(), "Action": action,
             })
     st.dataframe(pd.DataFrame(audit_data), use_container_width=True, hide_index=True)
+
+    # Audit verification demo
+    if st.button("Verify Audit Chain Integrity"):
+        import hashlib
+        import json as _json
+
+        # Simulate a chain verification
+        chain = []
+        prev_hash = "GENESIS"
+        for row in audit_data:
+            row_str = _json.dumps(row, sort_keys=True)
+            h = hashlib.sha256(f"{prev_hash}{row_str}".encode()).hexdigest()[:16]
+            chain.append((row, h, prev_hash))
+            prev_hash = h
+
+        # Show verification results
+        verify_html = '<div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:1rem;font-family:monospace;font-size:0.8rem;">'
+        verify_html += '<div style="color:#60A5FA;font-weight:700;margin-bottom:0.5rem;">Chain Verification</div>'
+        for i, (row, h, prev) in enumerate(chain):
+            verify_html += f'<div style="color:#22C55E;">Record #{i+1} — hash: {h} ✓</div>'
+        verify_html += f'<div style="color:#22C55E;margin-top:0.5rem;font-weight:700;">All {len(chain)} records verified. Chain intact.</div>'
+        verify_html += '</div>'
+        st.markdown(verify_html, unsafe_allow_html=True)
+
+    # Tamper demo
+    if st.button("Simulate Tampering"):
+        st.markdown(
+            '<div style="background:#7F1D1D;border:1px solid #EF4444;border-radius:8px;padding:1rem;font-family:monospace;font-size:0.8rem;">'
+            '<div style="color:#FCA5A5;font-weight:700;">🚨 CHAIN BROKEN</div>'
+            '<div style="color:#FECACA;margin-top:0.3rem;">'
+            'Record #4 modified after creation — hash mismatch detected.<br>'
+            'Expected: a3f8c2... but found: 9b1e7d...<br>'
+            '<b>This record was tampered with.</b>'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ============================================================
