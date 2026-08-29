@@ -125,8 +125,9 @@ def compute_alert_cost(level: str) -> dict:
     e_alert = p_fa * c_dispatch
     e_silence = p_miss * c_liability
 
-    # Decision: alert if expected cost of silence exceeds cost of alerting
-    should_alert = e_silence > e_alert
+    # Honest gating: green/yellow = monitor; orange+ = alert
+    # (matches what coaches actually need — yellow is manageable with breaks)
+    should_alert = level in ("orange", "red", "black")
 
     return {
         "P_false_alarm": p_fa,
@@ -516,12 +517,14 @@ class CoreEngine:
         else:
             temperature_c = fetch_temperature(self.client, site, target_date, target_time)
 
+        is_estimated = False
         if temperature_c == 0:
             print("   WARNING: API returned no temperature data.")
-            print("   Using 42°C fallback for demo purposes.")
-            temperature_c = 42.0  # Phoenix August afternoon typical
+            print("   Using 42C fallback (marked as estimated in audit log).")
+            temperature_c = 42.0
+            is_estimated = True
         else:
-            print(f"   Temperature: {temperature_c:.2f}°C ({temperature_c * 9/5 + 32:.1f}°F)")
+            print(f"   Temperature: {temperature_c:.2f}C ({temperature_c * 9/5 + 32:.1f}F)")
 
         # Step 2: Compute heat index
         print("\n[2/5] Computing heat index...")
@@ -606,6 +609,7 @@ class CoreEngine:
             "reschedule_action": reschedule_result["action"],
             "reschedule_detail": reschedule_result["reason"],
             "bucket_temps": {k: round(v, 2) for k, v in bucket_temps.items()},
+            "is_estimated": is_estimated,
             "memo": "",
         }
 

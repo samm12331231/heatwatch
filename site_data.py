@@ -8,6 +8,19 @@ Data provenance per hour:
 """
 
 from config import SITES
+from wbgt import estimate_wbgt
+from pathlib import Path
+import json as _json
+
+# Load KPHX environmental data for WBGT computation
+_KPHX_PATH = Path(__file__).parent / "data" / "kphx_history.json"
+_KPHX_ENV = {}
+if _KPHX_PATH.exists():
+    with open(_KPHX_PATH) as _f:
+        _kphx_raw = _json.load(_f)
+    for _day in ("heat", "null"):
+        if _day in _kphx_raw and "hourly" in _kphx_raw[_day]:
+            _KPHX_ENV[_day] = _kphx_raw[_day]["hourly"]
 
 # ============================================================
 # HEAT DAY: July 15, 2023 — Phoenix Heat Wave
@@ -78,9 +91,11 @@ def _interpolate_curve(measured: dict, offsets: dict) -> dict:
                 base = site_measured[measured_hours[0]]
                 curve[hour] = round(base + offsets.get(hour, 0), 1)
             elif hour > measured_hours[-1]:
-                # After last measurement: use profile from 12:00 anchor
-                base = site_measured[measured_hours[0]]
-                curve[hour] = round(base + offsets.get(hour, 0), 1)
+                # After last measurement: anchor from the LAST measured hour, not the first
+                last_h = measured_hours[-1]
+                base = site_measured[last_h]
+                last_offset = offsets.get(last_h, 0)
+                curve[hour] = round(base + (offsets.get(hour, 0) - last_offset), 1)
             else:
                 # Between measurements: linear interpolation
                 # Find the two bounding measured hours
@@ -131,20 +146,22 @@ for site in SITES:
 from core_engine import compute_heat_index as get_heat_index
 
 
-def get_policy_level(heat_index_c: float) -> str:
-    """Classify risk level from heat index.
+def get_policy_level(wbgt_f: float) -> str:
+    """AIA 2026-2027 WBGT-based policy levels (primary metric).
 
-    NOTE: Current AIA policy (2026-2027) uses WBGT, not heat index.
-    This uses heat index as a proxy because FortyGuard provides temperature data,
-    not WBGT. In production, on-field WBGT sensors would be the primary gate.
+    Thresholds aligned with UIL/TAPPS/GHSA/NCAA guidance:
+    - 82°F: increase breaks
+    - 87°F: limit duration, restrict equipment
+    - 90°F: further limit, no conditioning
+    - 92°F: no outdoor workouts
     """
-    if heat_index_c >= 38.0:
+    if wbgt_f >= 92.0:
         return "black"
-    elif heat_index_c >= 35.0:
+    elif wbgt_f >= 90.0:
         return "red"
-    elif heat_index_c >= 32.0:
+    elif wbgt_f >= 87.0:
         return "orange"
-    elif heat_index_c >= 30.0:
+    elif wbgt_f >= 82.0:
         return "yellow"
     return "green"
 
@@ -164,15 +181,39 @@ def get_humidity_for_hour(hour: int) -> float:
 
 
 def get_all_site_readings(hour: int, day_type: str = "heat") -> list:
-    """Get readings for all 6 sites at a given hour."""
+    """Get readings for all 6 sites at a given hour. WBGT is primary metric."""
     curves = HEAT_DAY_CURVES if day_type == "heat" else NULL_DAY_CURVES
     provenance = DATA_PROVENANCE[day_type]
     readings = []
+
+    # KPHX environmental data for this hour (for WBGT calculation)
+    env_data = _KPHX_ENV.get(day_type, {})
+    env = env_data.get(str(hour), {}) if env_data else {}
+    solar = env.get("solar_w_m2", 0)
+    wind_kmh = env.get("wind_speed_kmh", 0)
+    wind_ms = wind_kmh / 3.6 if wind_kmh else 0
+
     for site in SITE_INFO:
         temp_c = curves[site["id"]].get(hour, 0)
         humidity = get_humidity_for_hour(hour)
         hi_c = get_heat_index(temp_c, humidity)
-        level = get_policy_level(hi_c)
+
+        # WBGT = primary metric (AIA 2026-2027 standard)
+        wbgt = estimate_wbgt(temp_c, humidity, solar, wind_ms)
+        wbgt_f = wbgt["wbgt_f"]
+        level = get_policy_level(wbgt_f)
+
+        # Threshold proximity warning (within 2F of next level)
+        proximity = ""
+        if level == "green" and wbgt_f >= 80:
+            proximity = "2F from YELLOW"
+        elif level == "yellow" and wbgt_f >= 85:
+            proximity = "2F from ORANGE"
+        elif level == "orange" and wbgt_f >= 88:
+            proximity = "2F from RED"
+        elif level == "red" and wbgt_f >= 90:
+            proximity = "2F from BLACK"
+
         is_observed = hour in provenance["observed_hours"]
         readings.append({
             **site,
@@ -181,7 +222,10 @@ def get_all_site_readings(hour: int, day_type: str = "heat") -> list:
             "humidity_pct": humidity,
             "heat_index_c": hi_c,
             "heat_index_f": round(hi_c * 9 / 5 + 32, 1),
+            "wbgt_c": wbgt["wbgt_c"],
+            "wbgt_f": wbgt_f,
             "policy_level": level,
+            "proximity_warning": proximity,
             "alert": level in ("red", "black"),
             "data_provenance": "observed" if is_observed else "interpolated",
         })

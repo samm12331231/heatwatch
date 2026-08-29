@@ -114,12 +114,27 @@ else:
 
 # Agent activity — compact one-liner
 if run_agent:
-    flag_text = f"{n_danger} flagged · " if n_danger > 0 else ""
-    st.markdown(
-        f'<div style="background:#1E293B;border:1px solid #334155;border-radius:6px;padding:0.3rem 0.6rem;font-size:0.65rem;color:#22C55E;margin:0.2rem 0;">'
-        f'✓ 6 facilities · 18 windows · {flag_text}notifications drafted · audit committed</div>',
-        unsafe_allow_html=True
-    )
+    with st.spinner("Running CoreEngine across 6 sites..."):
+        try:
+            from core_engine import CoreEngine
+            from mock_client import MockFortyGuardClient
+            engine = CoreEngine(MockFortyGuardClient(), db_path="heatwatch_audit.db")
+            try:
+                decisions = engine.run_sweep("2023-07-15", f"{hour:02d}:00")
+                alerts = [d for d in decisions if d["alert_decision"] == "ALERT"]
+                reschedules = [d for d in decisions if d["reschedule_action"] == "RESCHEDULE"]
+                st.markdown(
+                    f'<div style="background:#1E293B;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.8rem;font-size:0.75rem;color:#22C55E;margin:0.3rem 0;">'
+                    f'✓ CoreEngine finished · {len(decisions)} sites · {len(alerts)} alerts · {len(reschedules)} rescheduled · audit written to SQLite</div>',
+                    unsafe_allow_html=True
+                )
+                for d in decisions:
+                    if d["alert_decision"] == "ALERT":
+                        st.warning(f"{d['site_name']}: {d['policy_level'].upper()} — {d['reschedule_action']} ({d['reschedule_detail']})")
+            finally:
+                engine.close()
+        except Exception as e:
+            st.error(f"Engine error: {e}")
 
 # ============================================================
 # TABS
@@ -176,25 +191,23 @@ with tab_monitor:
         </div>
         """, unsafe_allow_html=True)
 
-    # 3. SITE CARDS — compact, color-coded
-    st.markdown("<div class='section'>🏫 All Sites</div>", unsafe_allow_html=True)
+    # 3. SITE CARDS — WBGT primary, white temp, colored badge
+    st.markdown("<div class='section'>All Sites — WBGT Primary (AIA 2026-2027)</div>", unsafe_allow_html=True)
     cols = st.columns(6)
     for i, r in enumerate(readings):
         with cols[i]:
             lv = r["policy_level"]
-            if lv in ("red", "black"):
-                action_html = '<div style="font-size:0.7rem;font-weight:700;color:#EF4444;margin-top:0.2rem;">→ MOVE</div>'
-            elif lv == "orange":
-                action_html = '<div style="font-size:0.7rem;font-weight:700;color:#F59E0B;margin-top:0.2rem;">→ MONITOR</div>'
-            else:
-                action_html = '<div style="font-size:0.7rem;font-weight:700;color:#22C55E;margin-top:0.2rem;">✓ OK</div>'
+            prox = f'<div style="font-size:0.6rem;color:#F59E0B;margin-top:0.15rem;">{r["proximity_warning"]}</div>' if r["proximity_warning"] else ""
+            action_color = "#EF4444" if lv in ("red", "black") else ("#F59E0B" if lv == "orange" else "#22C55E")
+            action_text = "→ MOVE" if lv in ("red", "black") else ("→ MONITOR" if lv == "orange" else "✓ OK")
             st.markdown(f"""
             <div class="card">
                 <div class="card-name">{r['short_name']}</div>
-                <div class="card-temp" style="color:{LC[lv]}">{r['temp_f']:.0f}°F</div>
-                <div class="card-hi">HI {r['heat_index_f']:.0f}°F</div>
+                <div class="card-temp" style="color:#FFFFFF">{r['temp_f']:.0f}°F</div>
+                <div class="card-hi">WBGT {r['wbgt_f']:.0f}°F</div>
                 {badge(lv)}
-                {action_html}
+                <div style="font-size:0.7rem;font-weight:700;color:{action_color};margin-top:0.2rem;">{action_text}</div>
+                {prox}
             </div>""", unsafe_allow_html=True)
 
     # 4. 24-HOUR TIMELINE
@@ -214,15 +227,19 @@ with tab_monitor:
                       legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"), margin=dict(t=40))
     st.plotly_chart(fig, use_container_width=True)
 
-    # 5. NOW VS 7AM — visual comparison
-    now_temp = readings[0]["temp_f"]
+    # 5. MICROCLIMATE VARIANCE — why FortyGuard matters (Gemini's recommendation)
+    temps_all = [r["temp_f"] for r in readings]
+    max_diff = max(temps_all) - min(temps_all)
+    max_site = max(readings, key=lambda x: x["temp_f"])
+    min_site = min(readings, key=lambda x: x["temp_f"])
     st.markdown(f"""
-    <div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.6rem;display:flex;justify-content:space-around;text-align:center;">
-        <div><div style="font-size:0.65rem;color:#94A3B8;">NOW ({hour:02d}:00)</div><div style="font-size:1.2rem;font-weight:800;color:{LC[readings[0]['policy_level']]}">{now_temp:.0f}°F</div></div>
-        <div style="font-size:1.2rem;color:#475569;">→</div>
-        <div><div style="font-size:0.65rem;color:#94A3B8;">7:00 AM</div><div style="font-size:1.2rem;font-weight:800;color:{LC[morning_readings[0]['policy_level']]}">{morning_readings[0]['temp_f']:.0f}°F</div></div>
-        <div style="font-size:1.2rem;color:#475569;">→</div>
-        <div><div style="font-size:0.65rem;color:#94A3B8;">DIFFERENCE</div><div style="font-size:1.2rem;font-weight:800;color:#22C55E">{now_temp - morning_readings[0]['temp_f']:.0f}°F cooler</div></div>
+    <div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.8rem;">
+        <div style="font-size:0.7rem;color:#94A3B8;text-transform:uppercase;letter-spacing:0.05em;">Microclimate Variance (FortyGuard Spatial Data)</div>
+        <div style="display:flex;justify-content:space-around;text-align:center;margin-top:0.4rem;">
+            <div><div style="font-size:0.65rem;color:#94A3B8;">HOTTEST FIELD</div><div style="font-size:1.1rem;font-weight:800;color:#EF4444;">{max_site['temp_f']:.0f}°F</div><div style="font-size:0.6rem;color:#64748B;">{max_site['short_name']}</div></div>
+            <div><div style="font-size:0.65rem;color:#94A3B8;">COOLEST FIELD</div><div style="font-size:1.1rem;font-weight:800;color:#22C55E;">{min_site['temp_f']:.0f}°F</div><div style="font-size:0.6rem;color:#64748B;">{min_site['short_name']}</div></div>
+            <div><div style="font-size:0.65rem;color:#94A3B8;">SPREAD</div><div style="font-size:1.1rem;font-weight:800;color:#F59E0B;">{max_diff:.1f}°F</div><div style="font-size:0.6rem;color:#64748B;">Airport misses this</div></div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -302,33 +319,57 @@ with tab_report:
 # TAB 4: AUDIT
 # ============================================================
 with tab_audit:
-    st.markdown('<div class="section">📋 Decision Audit Trail</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section">Decision Audit Trail</div>', unsafe_allow_html=True)
     st.markdown('<div style="color:#94A3B8; font-size:0.75rem; margin-bottom:0.5rem;">Every check logged with SHA-256 hash chain — tamper-evident, verifiable.</div>', unsafe_allow_html=True)
 
+    import sqlite3 as _sqlite3
+    import os
+    db_path = "heatwatch_audit.db"
     audit_data = []
-    for h in [7, 12, 16]:
-        rd = get_readings(h, "heat")
-        for r in rd:
-            lv = r["policy_level"]
-            action = "RESCHEDULE" if lv in ("red", "black") else ("MONITOR" if lv == "orange" else "OK")
-            audit_data.append({"Time": f"2023-07-15 {h:02d}:00", "Site": r["short_name"],
-                               "Temp": f"{r['temp_f']:.0f}°F", "Level": LL[lv], "Action": action})
-    st.dataframe(pd.DataFrame(audit_data), use_container_width=True, hide_index=True)
+    if os.path.exists(db_path):
+        _conn = _sqlite3.connect(db_path)
+        _conn.row_factory = _sqlite3.Row
+        rows = _conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT 50").fetchall()
+        _conn.close()
+        for row in rows:
+            keys = row.keys()
+            audit_data.append({
+                "Time": f"{row['query_date']} {row['query_time']}" if 'query_date' in keys else row['timestamp'][:16],
+                "Site": row["site_name"],
+                "Temp": f"{row['temperature_c']:.1f}C" if row["temperature_c"] else "--",
+                "HI": f"{row['heat_index_c']:.1f}C" if row["heat_index_c"] else "--",
+                "Level": row["policy_level"].upper() if row["policy_level"] else "--",
+                "Alert": row["alert_decision"],
+                "Action": row["reschedule_action"],
+                "Hash": row["hash_self"][:12] + "..." if row["hash_self"] else "--",
+            })
+    else:
+        st.info("No audit database found. Click **Run Safety Check** to populate the audit trail.")
 
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("✅ Verify Chain Integrity", use_container_width=True):
-            import hashlib
-            prev = "GENESIS"
-            valid = 0
-            for row in audit_data:
-                h = hashlib.sha256(f"{prev}{json.dumps(row, sort_keys=True)}".encode()).hexdigest()[:12]
-                prev = h
-                valid += 1
-            st.success(f"Chain verified: {valid}/{valid} records intact ✓")
-    with col2:
-        if st.button("🚨 Simulate Tampering", use_container_width=True):
-            st.error("Record #4 modified — hash mismatch detected. Chain integrity: BROKEN ✗")
+    if audit_data:
+        st.dataframe(pd.DataFrame(audit_data), use_container_width=True, hide_index=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("Verify Chain Integrity", use_container_width=True):
+                import hashlib
+                _conn = _sqlite3.connect(db_path)
+                db_rows = _conn.execute("SELECT hash_prev, hash_self, site_id, temperature_c, policy_level, alert_decision FROM audit_log ORDER BY id").fetchall()
+                _conn.close()
+                prev = "GENESIS"
+                valid = 0
+                for r in db_rows:
+                    payload = json.dumps({"site_id": r[2], "temperature_c": r[3], "policy_level": r[4], "alert_decision": r[5]}, sort_keys=True)
+                    expected = hashlib.sha256(f"{prev}{payload}".encode()).hexdigest()
+                    if expected == r[1]:
+                        valid += 1
+                    prev = r[1]
+                st.success(f"Chain verified: {valid}/{len(db_rows)} records intact")
+        with col2:
+            if st.button("Simulate Tampering", use_container_width=True):
+                st.error("This would require modifying the SQLite DB on disk. In production, any mutation breaks the hash chain.")
+    else:
+        st.warning("Run the safety check to populate the audit trail.")
 
 
 # ============================================================
