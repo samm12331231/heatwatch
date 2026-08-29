@@ -107,8 +107,9 @@ def generate_athletic_director_email(school: str, decisions: list) -> dict:
 
     for d in decisions:
         status_icon = {"PROCEED": "✓", "RESCHEDULE": "→", "SUSPEND": "✗"}.get(d["action"], "?")
+        reason = d.get('reason', d.get('policy_level', '').upper())
         body_lines.append(
-            f"  {status_icon} {d['site_name']}: {d['action']} — {d['reason']}"
+            f"  {status_icon} {d['site_name']}: {d['action']} — {reason}"
         )
 
     body_lines.extend([
