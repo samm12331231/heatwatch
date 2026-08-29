@@ -19,7 +19,7 @@ from site_data import SITE_INFO, HEAT_DAY_CURVES, NULL_DAY_CURVES, get_all_site_
 st.markdown("""
 <style>
     #MainMenu, header, footer, .stDeployButton {visibility: hidden;}
-    .block-container {padding-top: 0.5rem !important; padding-bottom: 1rem !important; max-width: 100% !important;}
+    .block-container {padding-top: 0.3rem !important; padding-bottom: 0.5rem !important; max-width: 100% !important;}
     .hero-title {font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #F7C948); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
     .hero-sub {font-size: 0.85rem; color: #94A3B8;}
     .stat-num {font-size: 1.4rem; font-weight: 900; line-height: 1;}
@@ -114,23 +114,15 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-# Agent activity log
+# Agent activity — compact one-liner
 if run_agent:
-    steps = [
-        f"Queried 6 facilities via FortyGuard API",
-        f"Retrieved 18 forecast windows (3 time slots × 6 sites)",
-        f"Detected {n_danger} hazardous practices at {hour:02d}:00" if n_danger > 0 else f"All sites within safe limits",
-        f"Evaluated 18 candidate reschedule slots",
-        f"Selected optimal alternatives" if n_danger > 0 else f"No rescheduling needed",
-        f"Generated coach notification drafts",
-        f"Committed 18 decisions to audit chain",
-    ]
-    log_html = '<div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.8rem;font-family:monospace;font-size:0.75rem;margin:0.5rem 0;">'
-    log_html += '<div style="color:#60A5FA;font-weight:700;margin-bottom:0.3rem;">Agent Activity</div>'
-    for s in steps:
-        log_html += f'<div style="color:#22C55E;margin:0.15rem 0;">✓ {s}</div>'
-    log_html += '</div>'
-    st.markdown(log_html, unsafe_allow_html=True)
+    st.markdown(
+        '<div style="background:#1E293B;border:1px solid #334155;border-radius:6px;padding:0.4rem 0.8rem;font-size:0.7rem;color:#22C55E;margin:0.3rem 0;">'
+        '✓ 6 facilities queried · 18 windows evaluated · '
+        + (f'{n_danger} practices flagged · ' if n_danger > 0 else '') +
+        'notifications drafted · audit chain committed</div>',
+        unsafe_allow_html=True
+    )
 
 # ============================================================
 # TABS
@@ -143,7 +135,7 @@ tab_monitor, tab_analysis, tab_report, tab_audit = st.tabs(["🗺️ Monitor", "
 with tab_monitor:
     # Map
     map_df = pd.DataFrame([{"lat": r["lat"], "lon": r["lon"]} for r in readings])
-    st.map(map_df, zoom=10, use_container_width=True)
+    st.map(map_df, zoom=10.5, use_container_width=True)
 
     # Site cards — each with recommended action
     cols = st.columns(6)
@@ -225,7 +217,7 @@ with tab_analysis:
         comp["KPHX Airport"].append(f"{kt*9/5+32:.0f}°F")
         comp["FortyGuard Field"].append(f"{r['temp_f']:.0f}°F")
         comp["Diff"].append(f"{(r['temp_c']-kt)*9/5:+.0f}°F")
-        comp["WBGT"].append(f"{wbgt['wbgt_f']:.0f}°F {badge(wbgt['risk_level'])}")
+        comp["WBGT"].append(f"{wbgt['wbgt_f']:.0f}°F {LL[wbgt['risk_level']]}")
 
     st.dataframe(pd.DataFrame(comp), use_container_width=True, hide_index=True)
 

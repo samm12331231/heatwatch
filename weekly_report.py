@@ -85,7 +85,7 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
             hi = get_heat_index(temp_c, humidity)
             level = get_policy_level(hi)
             row_z.append(hi)
-            row_text.append(f"{level.upper()}<br>{temp_c:.0f}°C<br>HI: {hi:.0f}°C")
+            row_text.append(f"{level.upper()} {temp_c:.0f}°C")
         z.append(row_z)
         text.append(row_text)
 
@@ -100,7 +100,7 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
             [1.0, "#EF4444"],   # black
         ],
         zmin=25, zmax=42,
-        textfont={"size": 11, "color": "white"},
+        textfont={"size": 13, "color": "white"},
         colorbar=dict(
             title="Heat Index (°C)",
             tickvals=[27, 30, 32, 35, 38],
