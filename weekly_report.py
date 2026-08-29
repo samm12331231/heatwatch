@@ -10,7 +10,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from site_data import (
     SITE_INFO, get_all_site_readings, get_heat_index,
-    get_policy_level, get_humidity_for_hour, HEAT_DAY_CURVES,
+    get_policy_level, get_humidity_for_hour, HEAT_DAY_CURVES, NULL_DAY_CURVES,
 )
 
 LEVEL_COLORS = {

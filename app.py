@@ -130,35 +130,78 @@ if run_agent:
 tab_monitor, tab_analysis, tab_report, tab_audit = st.tabs(["🗺️ Monitor", "📊 Analysis", "📋 Schedule", "🔍 Audit"])
 
 # ============================================================
-# TAB 1: MONITOR
+# TAB 1: MONITOR — What should the coach do?
 # ============================================================
 with tab_monitor:
-    # Map
-    map_df = pd.DataFrame([{"lat": r["lat"], "lon": r["lon"]} for r in readings])
-    st.map(map_df, zoom=10.5, use_container_width=True)
+    # Find the safest time slot
+    morning_readings = get_readings(7, day_key)
+    morning_safe = all(r["policy_level"] in ("green", "yellow") for r in morning_readings)
+    morning_temp_avg = sum(r["temp_f"] for r in morning_readings) / len(morning_readings)
 
-    # Site cards — each with recommended action
+    # 1. RECOMMENDED SCHEDULE — This is the first thing a coach sees
+    st.markdown("<div class='section'>📋 Recommended Schedule</div>", unsafe_allow_html=True)
+
+    schedule_rows = []
+    for r in readings:
+        lv = r["policy_level"]
+        if lv in ("red", "black"):
+            action = "MOVE TO 7 AM"
+            action_color = "#22C55E"
+            reason = f"Current: {r['temp_f']:.0f}°F ({LL[lv]}) → 7 AM: {morning_readings[readings.index(r)]['temp_f']:.0f}°F"
+        elif lv == "orange":
+            action = "ADD BREAKS"
+            action_color = "#F59E0B"
+            reason = f"Monitor closely — {r['temp_f']:.0f}°F"
+        else:
+            action = "PROCEED"
+            action_color = "#22C55E"
+            reason = f"Safe — {r['temp_f']:.0f}°F ({LL[lv]})"
+        schedule_rows.append({"School": r["short_name"], "Current": f"{r['temp_f']:.0f}°F", "Level": LL[lv], "Action": action, "Details": reason})
+
+    schedule_df = pd.DataFrame(schedule_rows)
+    st.dataframe(schedule_df, use_container_width=True, hide_index=True)
+
+    # 2. SUMMARY BOX
+    n_move = sum(1 for r in readings if r["policy_level"] in ("red", "black"))
+    if n_move > 0:
+        st.markdown(f"""
+        <div style="background:#14532D;border:1px solid #22C55E;border-radius:8px;padding:0.8rem;margin:0.5rem 0;">
+            <div style="font-size:1rem;font-weight:700;color:#86EFAC;">✅ Move {n_move} practices to 7:00 AM</div>
+            <div style="font-size:0.85rem;color:#BBF7D0;margin-top:0.2rem;">
+                All 6 fields are safe at 7 AM ({morning_temp_avg:.0f}°F avg). Current time ({hour:02d}:00) is {readings[0]['temp_f']:.0f}°F — {readings[0]['temp_f'] - morning_temp_avg:.0f}°F hotter.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background:#14532D;border:1px solid #22C55E;border-radius:8px;padding:0.8rem;margin:0.5rem 0;">
+            <div style="font-size:1rem;font-weight:700;color:#86EFAC;">✅ All practices can proceed as scheduled</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 3. SITE CARDS — compact, color-coded
+    st.markdown("<div class='section'>🏫 All Sites</div>", unsafe_allow_html=True)
     cols = st.columns(6)
     for i, r in enumerate(readings):
         with cols[i]:
             lv = r["policy_level"]
             if lv in ("red", "black"):
-                action_text = '<div class="card-action" style="color:#EF4444;">→ RESCHEDULE</div>'
+                action_html = '<div style="font-size:0.7rem;font-weight:700;color:#EF4444;margin-top:0.2rem;">→ MOVE</div>'
             elif lv == "orange":
-                action_text = '<div class="card-action" style="color:#F59E0B;">→ MONITOR</div>'
+                action_html = '<div style="font-size:0.7rem;font-weight:700;color:#F59E0B;margin-top:0.2rem;">→ MONITOR</div>'
             else:
-                action_text = '<div class="card-action" style="color:#22C55E;">✓ OK</div>'
+                action_html = '<div style="font-size:0.7rem;font-weight:700;color:#22C55E;margin-top:0.2rem;">✓ OK</div>'
             st.markdown(f"""
             <div class="card">
                 <div class="card-name">{r['short_name']}</div>
                 <div class="card-temp" style="color:{LC[lv]}">{r['temp_f']:.0f}°F</div>
                 <div class="card-hi">HI {r['heat_index_f']:.0f}°F</div>
                 {badge(lv)}
-                {action_text}
+                {action_html}
             </div>""", unsafe_allow_html=True)
 
-    # Timeline — bigger, clearer
-    st.markdown('<div class="section">📈 24-Hour Temperature</div>', unsafe_allow_html=True)
+    # 4. 24-HOUR TIMELINE
+    st.markdown("<div class='section'>📈 24-Hour Temperature</div>", unsafe_allow_html=True)
     curves = HEAT_DAY_CURVES if is_heat else NULL_DAY_CURVES
     fig = go.Figure()
     for site in SITE_INFO:
@@ -168,22 +211,21 @@ with tab_monitor:
     fig.add_hline(y=100.4, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (100.4°F)", annotation_position="top left")
     fig.add_hline(y=95, line_dash="dot", line_color="#F97316", annotation_text="RED (95°F)", annotation_position="top left")
     fig.add_vline(x=hour, line_color="#60A5FA", line_width=3, annotation_text=f"Now: {hour:02d}:00", annotation_position="top")
-    fig.update_layout(template="plotly_dark", height=350, yaxis_title="Temperature (°F)", xaxis_title="Hour of Day",
+    fig.add_vline(x=7, line_color="#22C55E", line_width=2, line_dash="dot", annotation_text="7 AM (safe)", annotation_position="top")
+    fig.update_layout(template="plotly_dark", height=320, yaxis_title="Temperature (°F)", xaxis_title="Hour of Day",
                       yaxis_range=[77, 122] if is_heat else [59, 113],
                       legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"), margin=dict(t=40))
     st.plotly_chart(fig, use_container_width=True)
 
-    # Quick comparison: now vs 7AM
+    # 5. NOW VS 7AM — visual comparison
     now_temp = readings[0]["temp_f"]
-    morning = get_readings(7, day_key)
-    morning_temp = morning[0]["temp_f"]
     st.markdown(f"""
-    <div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.8rem;display:flex;justify-content:space-around;text-align:center;">
-        <div><div style="font-size:0.7rem;color:#94A3B8;">NOW ({hour:02d}:00)</div><div style="font-size:1.4rem;font-weight:800;color:{LC[readings[0]['policy_level']]}">{now_temp:.0f}°F</div></div>
-        <div style="font-size:1.5rem;color:#475569;">→</div>
-        <div><div style="font-size:0.7rem;color:#94A3B8;">7:00 AM</div><div style="font-size:1.4rem;font-weight:800;color:{LC[morning[0]['policy_level']]}">{morning_temp:.0f}°F</div></div>
-        <div style="font-size:1.5rem;color:#475569;">→</div>
-        <div><div style="font-size:0.7rem;color:#94A3B8;">DIFFERENCE</div><div style="font-size:1.4rem;font-weight:800;color:#22C55E">{now_temp - morning_temp:.0f}°F cooler</div></div>
+    <div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.6rem;display:flex;justify-content:space-around;text-align:center;">
+        <div><div style="font-size:0.65rem;color:#94A3B8;">NOW ({hour:02d}:00)</div><div style="font-size:1.2rem;font-weight:800;color:{LC[readings[0]['policy_level']]}">{now_temp:.0f}°F</div></div>
+        <div style="font-size:1.2rem;color:#475569;">→</div>
+        <div><div style="font-size:0.65rem;color:#94A3B8;">7:00 AM</div><div style="font-size:1.2rem;font-weight:800;color:{LC[morning_readings[0]['policy_level']]}">{morning_readings[0]['temp_f']:.0f}°F</div></div>
+        <div style="font-size:1.2rem;color:#475569;">→</div>
+        <div><div style="font-size:0.65rem;color:#94A3B8;">DIFFERENCE</div><div style="font-size:1.2rem;font-weight:800;color:#22C55E">{now_temp - morning_readings[0]['temp_f']:.0f}°F cooler</div></div>
     </div>
     """, unsafe_allow_html=True)
 
