@@ -23,7 +23,13 @@ LEVEL_ICONS = {
 
 
 def get_weekly_risk_matrix(site_id: str, day_type: str = "heat") -> pd.DataFrame:
-    """Build a 7-day × 6-time-slot risk matrix for a site."""
+    """Build a 7-day × 6-time-slot risk matrix for a site.
+
+    Adds small day-to-day variance (-0.8 to +0.8°C) so the heatmap
+    doesn't look identical Mon-Sun. Variance is seeded per day/site
+    for reproducibility.
+    """
+    import hashlib
     from site_data import HEAT_DAY_CURVES, NULL_DAY_CURVES
     curves = HEAT_DAY_CURVES if day_type == "heat" else NULL_DAY_CURVES
 
@@ -31,11 +37,15 @@ def get_weekly_risk_matrix(site_id: str, day_type: str = "heat") -> pd.DataFrame
     days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     data = []
-    for day in days:
+    for i, day in enumerate(days):
         row = {"Day": day}
+        # Deterministic per-day variance using hash (reproducible but varied)
+        seed = int(hashlib.md5(f"{site_id}-{day}-{day_type}".encode()).hexdigest()[:8], 16)
+        day_offset = ((seed % 16) - 8) / 10.0  # -0.8 to +0.8°C
+
         for slot in time_slots:
             hour = int(slot.split(":")[0])
-            temp_c = curves[site_id].get(hour, 0)
+            temp_c = curves[site_id].get(hour, 0) + day_offset
             humidity = get_humidity_for_hour(hour)
             hi = get_heat_index(temp_c, humidity)
             level = get_policy_level(hi)
@@ -48,7 +58,12 @@ def get_weekly_risk_matrix(site_id: str, day_type: str = "heat") -> pd.DataFrame
 
 
 def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") -> go.Figure:
-    """Create a Plotly heatmap of the week's risk levels."""
+    """Create a Plotly heatmap of the week's risk levels.
+
+    Includes small per-day variance so the heatmap doesn't look
+    identical across all 7 days.
+    """
+    import hashlib
     from site_data import HEAT_DAY_CURVES, NULL_DAY_CURVES
     curves = HEAT_DAY_CURVES if day_type == "heat" else NULL_DAY_CURVES
 
@@ -57,12 +72,15 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
 
     z = []
     text = []
-    for day in days:
+    for i, day in enumerate(days):
+        seed = int(hashlib.md5(f"{site_id}-{day}-{day_type}".encode()).hexdigest()[:8], 16)
+        day_offset = ((seed % 16) - 8) / 10.0  # -0.8 to +0.8°C
+
         row_z = []
         row_text = []
         for slot in time_slots:
             hour = int(slot.split(":")[0])
-            temp_c = curves[site_id].get(hour, 0)
+            temp_c = curves[site_id].get(hour, 0) + day_offset
             humidity = get_humidity_for_hour(hour)
             hi = get_heat_index(temp_c, humidity)
             level = get_policy_level(hi)

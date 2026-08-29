@@ -152,10 +152,11 @@ def create_policy_heatmap():
 
 
 def create_detection_summary():
-    """Gauge showing recall percentage."""
+    """Gauge showing recall percentage from eval_results.json."""
+    recall_pct = results["summary"]["recall"] * 100
     fig = go.Figure(go.Indicator(
         mode="gauge+number+delta",
-        value=100,
+        value=recall_pct,
         number={"suffix": "%", "font": {"size": 72, "color": "#10B981"}},
         title={"text": "Detection Rate (Recall)", "font": {"size": 18}},
         delta={"reference": 80, "increasing": {"color": "#10B981"}},
@@ -182,10 +183,11 @@ def create_detection_summary():
 
 
 def create_savings_gauge():
-    """Gauge showing cost savings."""
+    """Gauge showing cost savings from eval_results.json."""
+    savings = results["summary"]["cost_delta"]["savings"]
     fig = go.Figure(go.Indicator(
         mode="number+delta",
-        value=10500,
+        value=savings,
         number={"prefix": "$", "font": {"size": 64, "color": "#10B981"}},
         title={"text": "Cost Savings per Event (6 sites)", "font": {"size": 16}},
     ))

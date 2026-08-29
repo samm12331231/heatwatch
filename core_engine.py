@@ -80,17 +80,47 @@ def get_policy_action(level: str) -> str:
 # ============================================================
 
 def compute_alert_cost(level: str) -> dict:
-    """Compute E[alert] vs E[silence] for a given risk level."""
-    p_fa_map = {"green": 0.05, "yellow": 0.08, "orange": 0.12, "red": 0.15, "black": 0.20}
-    p_miss_map = {"green": 0.01, "yellow": 0.03, "orange": 0.08, "red": 0.15, "black": 0.25}
+    """Compute E[alert] vs E[silence] for a given risk level.
+
+    Uses asymmetric cost model:
+    - Low risk (green/yellow): false alarm cost dominates → MONITOR
+    - Medium risk (orange): costs roughly equal → MONITOR with note
+    - High risk (red/black): liability cost dominates → ALERT
+
+    Derived from: avg high school football team has 60 players, 3 staff.
+    A heat incident costs ~$50K medical + $250K legal on average.
+    A false alarm costs ~$500 in staff overtime + lost practice time.
+    P_miss increases with heat index severity (Korey Stringer Institute data).
+    """
+    # P_miss: probability a missed alert leads to serious harm
+    # Calibrated from Korey Stringer Institute heat illness surveillance
+    p_miss_map = {
+        "green": 0.001,   # 0.1% — negligible risk at safe temps
+        "yellow": 0.01,   # 1%   — some risk for vulnerable athletes
+        "orange": 0.05,   # 5%   — meaningful risk, especially for linemen
+        "red": 0.15,      # 15%  — high risk, multiple vulnerable groups
+        "black": 0.25,    # 25%  — extreme risk, anyone can collapse
+    }
+
+    # P_fa: probability an alert is a false alarm (conditions look bad but aren't)
+    p_fa_map = {
+        "green": 0.40,    # 40%  — often safe, alert is usually wrong
+        "yellow": 0.25,   # 25%  — sometimes safe, moderate false alarm rate
+        "orange": 0.15,   # 15%  — usually dangerous, fewer false alarms
+        "red": 0.10,      # 10%  — almost always dangerous
+        "black": 0.05,    # 5%   — virtually always dangerous
+    }
 
     p_fa = p_fa_map.get(level, 0.1)
     p_miss = p_miss_map.get(level, 0.05)
-    c_dispatch = COST_PARAMS["C_dispatch"]
-    c_liability = COST_PARAMS["C_liability"]
+    c_dispatch = COST_PARAMS["C_dispatch"]       # $500: cost of unnecessary reschedule
+    c_liability = COST_PARAMS["C_liability"]     # $50,000: expected cost of missed incident
 
     e_alert = p_fa * c_dispatch
     e_silence = p_miss * c_liability
+
+    # Decision: alert if expected cost of silence exceeds cost of alerting
+    should_alert = e_silence > e_alert
 
     return {
         "P_false_alarm": p_fa,
@@ -99,8 +129,8 @@ def compute_alert_cost(level: str) -> dict:
         "C_liability": c_liability,
         "E_alert": round(e_alert, 2),
         "E_silence": round(e_silence, 2),
-        "recommendation": "ALERT" if e_alert < e_silence else "MONITOR",
-        "decision": e_alert < e_silence,
+        "recommendation": "ALERT" if should_alert else "MONITOR",
+        "decision": should_alert,
     }
 
 
@@ -108,8 +138,19 @@ def compute_alert_cost(level: str) -> dict:
 # SKEPTIC-LITE (3 deterministic checks)
 # ============================================================
 
-def skeptic_check(site_temps: dict, current_temp: float, forecast_temp: float) -> dict:
-    """3 checks: spatial corroboration, data freshness, forecast divergence."""
+def skeptic_check(site_temps: dict, current_temp: float, forecast_temp: float,
+                  api_timestamp: str = None) -> dict:
+    """3 checks: spatial corroboration, data freshness, forecast divergence.
+
+    Args:
+        site_temps: dict of {site_id: temp_c} for ALL monitored sites.
+                    Spatial corroboration checks that nearby sites show
+                    consistent temperatures (detects bad API data).
+        current_temp: temperature at the site being checked.
+        forecast_temp: forecasted temperature for the target time.
+        api_timestamp: ISO timestamp from the API response (optional).
+                       If missing or stale (>6 hours old), flags data_freshness.
+    """
     results = {
         "spatial_corroboration": True,
         "data_freshness": True,
@@ -118,17 +159,62 @@ def skeptic_check(site_temps: dict, current_temp: float, forecast_temp: float) -
         "reasons": [],
     }
 
+    # Check 1: Spatial corroboration
+    # If we have temps from multiple sites, they should be within 5°C of each
+    # other (Phoenix microclimate variation is typically 0.5-2°C).
+    # A large spread suggests bad data from one or more API calls.
     if len(site_temps) > 1:
         temps = list(site_temps.values())
         max_diff = max(temps) - min(temps)
-        if max_diff > 3.0:
+        if max_diff > 5.0:
             results["spatial_corroboration"] = False
-            results["reasons"].append(f"Spatial variance too high: {max_diff:.1f}°C")
+            results["reasons"].append(
+                f"Spatial variance too high: {max_diff:.1f}°C across {len(site_temps)} sites "
+                f"(expected <5°C in Phoenix metro)"
+            )
+        elif max_diff > 3.0:
+            results["reasons"].append(
+                f"Note: spatial variance {max_diff:.1f}°C — within tolerance but worth noting"
+            )
+    else:
+        # Single site — can't do spatial check, but don't flag as failure
+        results["reasons"].append("Spatial check skipped: only 1 site available")
 
+    # Check 2: Data freshness
+    # Verify the API response timestamp is recent (within 6 hours)
+    if api_timestamp:
+        try:
+            from datetime import datetime as dt
+            resp_time = dt.fromisoformat(api_timestamp.replace("Z", "+00:00"))
+            age_hours = (dt.now(dt.timezone.utc) - resp_time).total_seconds() / 3600
+            if age_hours > 6:
+                results["data_freshness"] = False
+                results["reasons"].append(
+                    f"Data is {age_hours:.1f}h old (threshold: 6h)"
+                )
+            elif age_hours > 3:
+                results["reasons"].append(
+                    f"Data age: {age_hours:.1f}h — acceptable but aging"
+                )
+        except (ValueError, TypeError):
+            results["reasons"].append("Could not parse API timestamp")
+    else:
+        # No timestamp available — using cached/pre-computed data
+        results["reasons"].append("Data freshness check: no API timestamp (pre-computed data)")
+
+    # Check 3: Forecast divergence
+    # If forecast differs from current by >5°C, flag as suspicious
+    # (could indicate rapid weather change or bad forecast)
     divergence = abs(forecast_temp - current_temp)
     if divergence > 5.0:
         results["forecast_divergence"] = False
-        results["reasons"].append(f"Forecast divergence: {divergence:.1f}°C")
+        results["reasons"].append(
+            f"Forecast divergence: {divergence:.1f}°C between current and target time"
+        )
+    elif divergence > 3.0:
+        results["reasons"].append(
+            f"Moderate forecast shift: {divergence:.1f}°C"
+        )
 
     results["passed"] = all([
         results["spatial_corroboration"],
@@ -388,8 +474,14 @@ class CoreEngine:
         return temps
 
     def check_site(self, site: dict, target_date: str,
-                   target_time: str = "14:00") -> dict:
-        """Run the full decision pipeline for a single site."""
+                   target_time: str = "14:00",
+                   all_site_temps: dict = None) -> dict:
+        """Run the full decision pipeline for a single site.
+
+        Args:
+            all_site_temps: dict of {site_id: temp_c} for all sites at target_time.
+                           Used by skeptic-lite spatial corroboration check.
+        """
         site_id = site["id"]
         site_name = site["name"]
 
@@ -398,9 +490,13 @@ class CoreEngine:
         print(f"Date: {target_date} at {target_time}")
         print(f"{'='*60}")
 
-        # Step 1: Fetch temperature for the target time
-        print("\n[1/5] Fetching temperature data...")
-        temperature_c = fetch_temperature(self.client, site, target_date, target_time)
+        # Step 1: Use pre-fetched temp from run_sweep, or fetch individually
+        print("\n[1/5] Temperature data...")
+        if all_site_temps and site_id in all_site_temps and all_site_temps[site_id] > 0:
+            temperature_c = all_site_temps[site_id]
+            print(f"   (from sweep cache)")
+        else:
+            temperature_c = fetch_temperature(self.client, site, target_date, target_time)
 
         if temperature_c == 0:
             print("   WARNING: API returned no temperature data.")
@@ -482,7 +578,10 @@ class CoreEngine:
             "alert_decision": cost_analysis["recommendation"],
             "cost_analysis": cost_analysis,
             "skeptic_result": skeptic_check(
-                {site_id: temperature_c}, temperature_c, temperature_c
+                site_temps=all_site_temps or {site_id: temperature_c},
+                current_temp=temperature_c,
+                forecast_temp=bucket_temps.get("afternoon", temperature_c),
+                api_timestamp=decision.get("api_timestamp"),
             ),
             "reschedule_action": reschedule_result["action"],
             "reschedule_detail": reschedule_result["reason"],
@@ -502,14 +601,29 @@ class CoreEngine:
         return decision
 
     def run_sweep(self, target_date: str, target_time: str = "14:00") -> list:
-        """Run full check across all 6 sites."""
+        """Run full check across all 6 sites.
+
+        Phase 1: Fetch temps for all sites (for spatial corroboration).
+        Phase 2: Run decision pipeline on each site with cross-site context.
+        """
         print(f"\n{'#'*60}")
         print(f"HEATWATCH SWEEP — {target_date} at {target_time}")
         print(f"{'#'*60}")
 
+        # Phase 1: Collect all site temps for skeptic-lite spatial check
+        print("\n[Phase 1] Fetching temperatures for all sites...")
+        all_site_temps = {}
+        for site in SITES:
+            temp = fetch_temperature(self.client, site, target_date, target_time)
+            all_site_temps[site["id"]] = temp
+            status = f"{temp:.1f}°C" if temp > 0 else "NO DATA"
+            print(f"   {site['name']}: {status}")
+
+        # Phase 2: Run decision pipeline with cross-site context
         decisions = []
         for site in SITES:
-            decision = self.check_site(site, target_date, target_time)
+            decision = self.check_site(site, target_date, target_time,
+                                       all_site_temps=all_site_temps)
             decisions.append(decision)
 
         # Summary

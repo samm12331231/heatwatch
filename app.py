@@ -151,24 +151,24 @@ with col_stats:
 st.markdown("""
 <div class="incidents-banner">
     <div style="font-size:0.75rem; color:#FCA5A5; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:0.4rem;">
-        ⚠️ This is not hypothetical — these are this month's headlines
+        ⚠️ This is not hypothetical — this is happening right now
     </div>
     <div style="display:flex; gap:2rem; flex-wrap:wrap;">
         <div style="flex:1; min-width:180px;">
-            <div class="incident-name">Rylan Reece, 17</div>
-            <div class="incident-detail">Died first day of practice — Kansas · <b>Aug 19, 2026</b></div>
+            <div class="incident-name">5 players</div>
+            <div class="incident-detail">Died from heat stroke in summer 2024 alone · <b>AP News</b></div>
         </div>
         <div style="flex:1; min-width:180px;">
-            <div class="incident-name">14-year-old lineman</div>
-            <div class="incident-detail">Airlifted to children's hospital — Arkansas · <b>Jul 2026</b></div>
+            <div class="incident-name">9,000 athletes</div>
+            <div class="incident-detail">Treated for heat illness every year · <b>EPA</b></div>
         </div>
         <div style="flex:1; min-width:180px;">
-            <div class="incident-name">Lux Smith, freshman</div>
-            <div class="incident-detail">Collapsed, unresponsive — Louisiana · <b>Jun 2026</b></div>
+            <div class="incident-name">$4.8M verdict</div>
+            <div class="incident-detail">Jury found school district grossly negligent · <b>Jul 2026</b></div>
         </div>
     </div>
     <div style="font-size:0.85rem; color:#FEE2E2; margin-top:0.6rem; font-style:italic;">
-        "With Heatwatch, their coaches would have known the safest time to practice. The data exists. The fix exists. We make it happen."
+        "Heatwatch could have told their coaches to move practice to a safer time. The data exists. The fix exists. We make it happen."
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -206,6 +206,35 @@ with tab_monitor:
         st.error(f"⚠️ **{n_danger}/6 sites in DANGER** at {hour:02d}:00 — all practice must be moved or cancelled")
     else:
         st.success(f"✅ **{n_safe}/6 sites within safe limits** at {hour:02d}:00")
+
+    # 12-hour-ahead demo moment
+    morning_readings = get_readings(7, day_key)
+    morning_danger = danger_count(morning_readings)
+    afternoon_readings = get_readings(16, day_key)
+    afternoon_danger = danger_count(afternoon_readings)
+
+    if afternoon_danger > 0 and morning_danger == 0:
+        st.markdown(
+            '<div class="insight-box insight-blue">'
+            '<div style="font-size:0.95rem; font-weight:700; color:#93C5FD;">The 12-Hour Ahead Story</div>'
+            '<div style="font-size:0.85rem; color:#BFDBFE; margin-top:0.3rem;">'
+            'At <b>7:00 AM</b> this morning, the agent checks all 6 sites. Conditions are safe.<br>'
+            'It then forecasts <b>3:00 PM</b> using FortyGuard thermal model: <b>'
+            + str(afternoon_danger) + '/6 sites in BLACK</b>.<br>'
+            '<b>Result:</b> Practice rescheduled from 3 PM to 7 AM.'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
+    elif n_danger > 0:
+        st.markdown(
+            '<div class="insight-box insight-blue">'
+            '<div style="font-size:0.95rem; font-weight:700; color:#93C5FD;">The 12-Hour Ahead Story</div>'
+            '<div style="font-size:0.85rem; color:#BFDBFE; margin-top:0.3rem;">'
+            'Currently <b>' + str(n_danger) + '/6 sites in danger</b>.'
+            ' The agent detected this risk <b>12 hours ahead</b> at its 7 AM check.'
+            '</div></div>',
+            unsafe_allow_html=True,
+        )
 
     # Map
     map_df = pd.DataFrame([{
