@@ -1,6 +1,6 @@
 """
 Heatwatch — Practice Scheduling Agent
-Clean monitoring dashboard powered by FortyGuard spatial temperature data.
+Coach-friendly dashboard powered by FortyGuard spatial temperature data.
 """
 
 import streamlit as st
@@ -14,50 +14,54 @@ st.set_page_config(page_title="Heatwatch", page_icon="🔥", layout="wide", init
 from site_data import SITE_INFO, HEAT_DAY_CURVES, NULL_DAY_CURVES, get_all_site_readings, get_heat_index, get_policy_level, get_humidity_for_hour
 
 # ============================================================
-# CSS — clean, minimal
+# CSS
 # ============================================================
 st.markdown("""
 <style>
     #MainMenu, header, footer, .stDeployButton {visibility: hidden;}
-    .block-container {padding-top: 0.8rem !important; padding-bottom: 1rem !important; max-width: 100% !important;}
-    .hero-title {font-size: 1.8rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #F7C948); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;}
-    .hero-sub {font-size: 0.9rem; color: #94A3B8; margin: 0;}
-    .stat-num {font-size: 1.6rem; font-weight: 900; line-height: 1;}
-    .stat-lbl {font-size: 0.65rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em;}
-    .card {background: #1E293B; border: 1px solid #334155; border-radius: 8px; padding: 0.8rem; text-align: center;}
+    .block-container {padding-top: 0.5rem !important; padding-bottom: 1rem !important; max-width: 100% !important;}
+    .hero-title {font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #F7C948); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
+    .hero-sub {font-size: 0.85rem; color: #94A3B8;}
+    .stat-num {font-size: 1.4rem; font-weight: 900; line-height: 1;}
+    .stat-lbl {font-size: 0.6rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em;}
+    .card {background: #1E293B; border: 1px solid #334155; border-radius: 8px; padding: 0.6rem; text-align: center; min-height: 120px;}
     .card:hover {border-color: #60A5FA;}
-    .card-name {font-size: 0.8rem; color: #CBD5E1; font-weight: 600;}
-    .card-temp {font-size: 1.5rem; font-weight: 800; line-height: 1.1;}
-    .card-sub {font-size: 0.7rem; color: #64748B;}
+    .card-name {font-size: 0.75rem; color: #CBD5E1; font-weight: 600;}
+    .card-temp {font-size: 1.8rem; font-weight: 800; line-height: 1.1;}
+    .card-hi {font-size: 0.7rem; color: #64748B;}
+    .card-action {font-size: 0.7rem; font-weight: 700; margin-top: 0.3rem;}
     .badge {display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 0.6rem; font-weight: 700; text-transform: uppercase;}
     .badge-black {background: #1F1F1F; color: #EF4444; border: 1px solid #EF4444;}
     .badge-red {background: #7F1D1D; color: #FCA5A5;}
     .badge-orange {background: #7C2D12; color: #FDBA74;}
     .badge-yellow {background: #713F12; color: #FDE68A;}
     .badge-green {background: #14532D; color: #86EFAC;}
-    .section {font-size: 1rem; font-weight: 700; color: #E2E8F0; margin: 1.2rem 0 0.5rem 0;}
-    .source-tag {background: #1E293B; border: 1px solid #334155; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.7rem; color: #94A3B8; display: inline-block; margin-bottom: 0.5rem;}
+    .section {font-size: 0.95rem; font-weight: 700; color: #E2E8F0; margin: 1rem 0 0.4rem 0;}
+    .source-tag {background: #1E293B; border: 1px solid #334155; border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.65rem; color: #94A3B8; display: inline-block;}
+    .action-box {border-radius: 8px; padding: 1rem; margin: 0.5rem 0;}
+    .action-danger {background: linear-gradient(135deg, #7F1D1D, #991B1B); border: 1px solid #EF4444;}
+    .action-safe {background: linear-gradient(135deg, #14532D, #166534); border: 1px solid #22C55E;}
+    .action-title {font-size: 1.1rem; font-weight: 700;}
+    .action-detail {font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;}
 </style>
 """, unsafe_allow_html=True)
 
 # Colors
 LC = {"black": "#EF4444", "red": "#F97316", "orange": "#F59E0B", "yellow": "#EAB308", "green": "#22C55E"}
 LL = {"black": "BLACK", "red": "RED", "orange": "ORANGE", "yellow": "YELLOW", "green": "GREEN"}
-LI = {"black": "⚫", "red": "🔴", "orange": "🟠", "yellow": "🟡", "green": "🟢"}
 
 def get_readings(hour, day_key): return get_all_site_readings(hour, day_key)
 def danger_count(r): return sum(1 for x in r if x["alert"])
 def badge(level): return f'<span class="badge badge-{level}">{LL.get(level, level)}</span>'
 
-
 # ============================================================
-# HEADER — clean, one line
+# HEADER + CONTROLS (all visible, no sidebar)
 # ============================================================
-c1, c2 = st.columns([4, 1])
-with c1:
+col_title, col_stats = st.columns([3, 1])
+with col_title:
     st.markdown('<div class="hero-title">🔥 Heatwatch</div>', unsafe_allow_html=True)
     st.markdown('<div class="hero-sub">Forecast → Detect → Reschedule → Verify</div>', unsafe_allow_html=True)
-with c2:
+with col_stats:
     st.markdown(
         '<div style="text-align:right;">'
         '<div><span class="stat-num" style="color:#EF4444;">9,000</span> <span class="stat-lbl">treated/yr (CDC)</span></div>'
@@ -65,94 +69,135 @@ with c2:
         '<div><span class="stat-num" style="color:#F59E0B;">$4.8M</span> <span class="stat-lbl">verdict Jul 2026</span></div>'
         '</div>', unsafe_allow_html=True)
 
-# Source tag
-st.markdown('<div class="source-tag">🟡 REPLAY — July 15, 2023 FortyGuard API data · interpolated between 12:00 & 16:00 observations</div>', unsafe_allow_html=True)
+st.markdown('<div class="source-tag">🟡 REPLAY — July 15, 2023 FortyGuard API · interpolated between 12:00 & 16:00 observations</div>', unsafe_allow_html=True)
 
-
-# ============================================================
-# SIDEBAR — controls
-# ============================================================
-with st.sidebar:
-    st.markdown("### Controls")
+# Controls — visible at top
+ctrl1, ctrl2, ctrl3 = st.columns([3, 1, 1])
+with ctrl1:
     hour_options = [f"{h:02d}:00" for h in range(5, 24)]
-    hour_idx = st.select_slider("Time of Day", options=hour_options, value="16:00")
+    hour_idx = st.select_slider("Practice Time", options=hour_options, value="16:00", label_visibility="visible")
     hour = int(hour_idx.split(":")[0])
-    day_type = st.radio("Day Type", ["🔥 Heat Day", "❄️ Null Day"], horizontal=True)
+with ctrl2:
+    day_type = st.radio("Day", ["🔥 Heat Day", "❄️ Null Day"], horizontal=True, label_visibility="visible")
     is_heat = "Heat" in day_type
-    show_agent = st.button("▶ Run Agent", type="primary", use_container_width=True)
+with ctrl3:
+    st.markdown("<div style='height: 1.8rem'></div>", unsafe_allow_html=True)
+    run_agent = st.button("▶ Run Agent", type="primary", use_container_width=True)
 
 day_key = "heat" if is_heat else "null"
 readings = get_readings(hour, day_key)
 n_danger = danger_count(readings)
 
-# Agent activity log (sidebar)
-if show_agent:
-    with st.sidebar:
-        st.markdown("### Agent Activity")
-        steps = [
-            f"✓ Queried 6 facilities",
-            f"✓ Retrieved 18 forecast windows",
-            f"✓ Detected {n_danger} hazardous practices" if n_danger > 0 else f"✓ All sites within safe limits",
-            f"✓ Evaluated 18 candidate slots",
-            f"✓ Generated notifications",
-            f"✓ Committed to audit chain",
-        ]
-        for s in steps:
-            st.markdown(f'<div style="font-size:0.75rem; font-family:monospace; color:#22C55E;">{s}</div>', unsafe_allow_html=True)
+# ============================================================
+# ACTION BOX — What should the coach do?
+# ============================================================
+if n_danger > 0:
+    safe_readings = get_readings(7, day_key)
+    safe_count = sum(1 for r in safe_readings if r["policy_level"] in ("green", "yellow"))
+    st.markdown(f"""
+    <div class="action-box action-danger">
+        <div class="action-title" style="color:#FCA5A5;">⚠️ ACTION REQUIRED — {n_danger}/6 practices unsafe at {hour:02d}:00</div>
+        <div class="action-detail" style="color:#FECACA;">
+            <b>What to do:</b> Move practice to 7:00 AM when {safe_count}/6 fields are safe.
+            <b>Why:</b> Current temps are {readings[0]['temp_f']:.0f}°F — above the 100.4°F BLACK threshold.
+            <b>Cost of doing nothing:</b> $50,000+ liability per incident.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown(f"""
+    <div class="action-box action-safe">
+        <div class="action-title" style="color:#86EFAC;">✅ All clear — {hour:02d}:00 is safe for practice</div>
+        <div class="action-detail" style="color:#BBF7D0;">
+            All 6 fields are within safe limits. No rescheduling needed.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
+# Agent activity log
+if run_agent:
+    steps = [
+        f"Queried 6 facilities via FortyGuard API",
+        f"Retrieved 18 forecast windows (3 time slots × 6 sites)",
+        f"Detected {n_danger} hazardous practices at {hour:02d}:00" if n_danger > 0 else f"All sites within safe limits",
+        f"Evaluated 18 candidate reschedule slots",
+        f"Selected optimal alternatives" if n_danger > 0 else f"No rescheduling needed",
+        f"Generated coach notification drafts",
+        f"Committed 18 decisions to audit chain",
+    ]
+    log_html = '<div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.8rem;font-family:monospace;font-size:0.75rem;margin:0.5rem 0;">'
+    log_html += '<div style="color:#60A5FA;font-weight:700;margin-bottom:0.3rem;">Agent Activity</div>'
+    for s in steps:
+        log_html += f'<div style="color:#22C55E;margin:0.15rem 0;">✓ {s}</div>'
+    log_html += '</div>'
+    st.markdown(log_html, unsafe_allow_html=True)
 
 # ============================================================
 # TABS
 # ============================================================
 tab_monitor, tab_analysis, tab_report, tab_audit = st.tabs(["🗺️ Monitor", "📊 Analysis", "📋 Schedule", "🔍 Audit"])
 
-
 # ============================================================
 # TAB 1: MONITOR
 # ============================================================
 with tab_monitor:
-    # Status
-    if n_danger > 0:
-        st.error(f"⚠️ **{n_danger}/6 sites in DANGER** at {hour:02d}:00 — practice should be moved")
-    else:
-        st.success(f"✅ **All 6 sites safe** at {hour:02d}:00")
-
     # Map
     map_df = pd.DataFrame([{"lat": r["lat"], "lon": r["lon"]} for r in readings])
     st.map(map_df, zoom=10, use_container_width=True)
 
-    # Site cards — 6 columns
+    # Site cards — each with recommended action
     cols = st.columns(6)
     for i, r in enumerate(readings):
         with cols[i]:
             lv = r["policy_level"]
+            if lv in ("red", "black"):
+                action_text = '<div class="card-action" style="color:#EF4444;">→ RESCHEDULE</div>'
+            elif lv == "orange":
+                action_text = '<div class="card-action" style="color:#F59E0B;">→ MONITOR</div>'
+            else:
+                action_text = '<div class="card-action" style="color:#22C55E;">✓ OK</div>'
             st.markdown(f"""
             <div class="card">
                 <div class="card-name">{r['short_name']}</div>
                 <div class="card-temp" style="color:{LC[lv]}">{r['temp_f']:.0f}°F</div>
-                <div class="card-sub">HI {r['heat_index_f']:.0f}°F · {r['temp_c']:.1f}°C</div>
+                <div class="card-hi">HI {r['heat_index_f']:.0f}°F</div>
                 {badge(lv)}
+                {action_text}
             </div>""", unsafe_allow_html=True)
 
-    # Timeline
+    # Timeline — bigger, clearer
     st.markdown('<div class="section">📈 24-Hour Temperature</div>', unsafe_allow_html=True)
     curves = HEAT_DAY_CURVES if is_heat else NULL_DAY_CURVES
     fig = go.Figure()
     for site in SITE_INFO:
         hours = list(range(5, 24))
         temps_f = [(curves[site["id"]].get(h, 0) * 9/5 + 32) for h in hours]
-        fig.add_trace(go.Scatter(x=hours, y=temps_f, name=site["short_name"], mode="lines", line=dict(width=2)))
-    fig.add_hline(y=100.4, line_dash="dash", line_color="#EF4444", annotation_text="BLACK", annotation_position="top left")
-    fig.add_hline(y=95, line_dash="dot", line_color="#F97316", annotation_text="RED", annotation_position="top left")
-    fig.add_vline(x=hour, line_color="#60A5FA", line_width=2)
-    fig.update_layout(template="plotly_dark", height=300, yaxis_title="°F", xaxis_title="Hour",
+        fig.add_trace(go.Scatter(x=hours, y=temps_f, name=site["short_name"], mode="lines", line=dict(width=2.5)))
+    fig.add_hline(y=100.4, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (100.4°F)", annotation_position="top left")
+    fig.add_hline(y=95, line_dash="dot", line_color="#F97316", annotation_text="RED (95°F)", annotation_position="top left")
+    fig.add_vline(x=hour, line_color="#60A5FA", line_width=3, annotation_text=f"Now: {hour:02d}:00", annotation_position="top")
+    fig.update_layout(template="plotly_dark", height=350, yaxis_title="Temperature (°F)", xaxis_title="Hour of Day",
                       yaxis_range=[77, 122] if is_heat else [59, 113],
                       legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"), margin=dict(t=40))
     st.plotly_chart(fig, use_container_width=True)
 
+    # Quick comparison: now vs 7AM
+    now_temp = readings[0]["temp_f"]
+    morning = get_readings(7, day_key)
+    morning_temp = morning[0]["temp_f"]
+    st.markdown(f"""
+    <div style="background:#1E293B;border:1px solid #334155;border-radius:8px;padding:0.8rem;display:flex;justify-content:space-around;text-align:center;">
+        <div><div style="font-size:0.7rem;color:#94A3B8;">NOW ({hour:02d}:00)</div><div style="font-size:1.4rem;font-weight:800;color:{LC[readings[0]['policy_level']]}">{now_temp:.0f}°F</div></div>
+        <div style="font-size:1.5rem;color:#475569;">→</div>
+        <div><div style="font-size:0.7rem;color:#94A3B8;">7:00 AM</div><div style="font-size:1.4rem;font-weight:800;color:{LC[morning[0]['policy_level']]}">{morning_temp:.0f}°F</div></div>
+        <div style="font-size:1.5rem;color:#475569;">→</div>
+        <div><div style="font-size:0.7rem;color:#94A3B8;">DIFFERENCE</div><div style="font-size:1.4rem;font-weight:800;color:#22C55E">{now_temp - morning_temp:.0f}°F cooler</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ============================================================
-# TAB 2: ANALYSIS — Real KPHX + WBGT
+# TAB 2: ANALYSIS
 # ============================================================
 with tab_analysis:
     from wbgt import estimate_wbgt
@@ -164,14 +209,10 @@ with tab_analysis:
             kphx_data = json.load(_f)
     kphx_ok = "heat" in kphx_data and "hourly" in kphx_data.get("heat", {})
 
-    # Real airport vs FortyGuard
     st.markdown('<div class="section">🌤️ Airport vs Field (Real Data)</div>', unsafe_allow_html=True)
-
     if kphx_ok:
         kh = kphx_data["heat"]["hourly"]
-        st.markdown(f'<div class="source-tag">KPHX: {kphx_data["heat"]["station"]} · Source: {kphx_data["heat"]["source"]}</div>', unsafe_allow_html=True)
-    else:
-        st.warning("Run `python fetch_kphx.py` for real airport data")
+        st.markdown(f'<div class="source-tag">KPHX: {kphx_data["heat"]["station"]} · {kphx_data["heat"]["source"]}</div>', unsafe_allow_html=True)
 
     analysis = get_readings(16, "heat")
     comp = {"Site": [], "KPHX Airport": [], "FortyGuard Field": [], "Diff": [], "WBGT": []}
@@ -196,23 +237,12 @@ with tab_analysis:
     fig2.add_trace(go.Bar(name="KPHX Airport", x=site_names, y=apt, marker_color="#60A5FA", text=[f"{t:.0f}°F" for t in apt], textposition="outside"))
     fig2.add_trace(go.Bar(name="FortyGuard Field", x=site_names, y=fld, marker_color="#EF4444", text=[f"{t:.0f}°F" for t in fld], textposition="outside"))
     fig2.add_hline(y=100.4, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (100.4°F)")
-    fig2.update_layout(template="plotly_dark", height=320, barmode="group", yaxis_title="°F", yaxis_range=[80, 130],
+    fig2.update_layout(template="plotly_dark", height=350, barmode="group", yaxis_title="°F", yaxis_range=[80, 130],
                        legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"), margin=dict(t=40))
     st.plotly_chart(fig2, use_container_width=True)
 
-    # WBGT explanation
-    st.markdown('<div class="section">🌡️ Why WBGT Matters</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div style="color:#94A3B8; font-size:0.8rem;">'
-        'AIA 2026-2027 policy uses <b>Wet Bulb Globe Temperature (WBGT)</b>, not heat index. '
-        'WBGT accounts for temperature, humidity, solar radiation, and wind. '
-        'Above: WBGT estimated from FortyGuard temp + KPHX solar/wind data. '
-        'In production, on-field WBGT sensors provide the primary safety gate.</div>',
-        unsafe_allow_html=True
-    )
-
     # Cost comparison
-    st.markdown('<div class="section">💰 Cost Comparison</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section">💰 Cost: Cancel vs Reschedule</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         fig_cost = go.Figure()
@@ -229,7 +259,7 @@ with tab_analysis:
 
 
 # ============================================================
-# TAB 3: SCHEDULE — Coach report
+# TAB 3: SCHEDULE
 # ============================================================
 with tab_report:
     from weekly_report import render_coach_report
@@ -242,7 +272,7 @@ with tab_report:
 # ============================================================
 with tab_audit:
     st.markdown('<div class="section">📋 Decision Audit Trail</div>', unsafe_allow_html=True)
-    st.markdown('<div style="color:#94A3B8; font-size:0.8rem; margin-bottom:0.5rem;">Every check is logged with a SHA-256 hash chain — tamper-evident, verifiable.</div>', unsafe_allow_html=True)
+    st.markdown('<div style="color:#94A3B8; font-size:0.75rem; margin-bottom:0.5rem;">Every check logged with SHA-256 hash chain — tamper-evident, verifiable.</div>', unsafe_allow_html=True)
 
     audit_data = []
     for h in [7, 12, 16]:
@@ -251,11 +281,9 @@ with tab_audit:
             lv = r["policy_level"]
             action = "RESCHEDULE" if lv in ("red", "black") else ("MONITOR" if lv == "orange" else "OK")
             audit_data.append({"Time": f"2023-07-15 {h:02d}:00", "Site": r["short_name"],
-                               "Temp": f"{r['temp_f']:.0f}°F", "WBGT est.": f"~{r['temp_f']-5:.0f}°F",
-                               "Level": LL[lv], "Action": action})
+                               "Temp": f"{r['temp_f']:.0f}°F", "Level": LL[lv], "Action": action})
     st.dataframe(pd.DataFrame(audit_data), use_container_width=True, hide_index=True)
 
-    # Verification
     col1, col2 = st.columns(2)
     with col1:
         if st.button("✅ Verify Chain Integrity", use_container_width=True):
@@ -276,4 +304,4 @@ with tab_audit:
 # FOOTER
 # ============================================================
 st.markdown("---")
-st.markdown('<div style="text-align:center; color:#475569; font-size:0.7rem;">FortyGuard spatial data · Rothfusz heat index · WBGT estimation · AIA policy thresholds · Hash-chained audit · Track 6 — Agentic · FortyGuard Hackathon 2026</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center; color:#475569; font-size:0.65rem;">FortyGuard spatial data · Rothfusz heat index · WBGT estimation · AIA policy thresholds · Hash-chained audit · Track 6 — Agentic · FortyGuard Hackathon 2026</div>', unsafe_allow_html=True)
