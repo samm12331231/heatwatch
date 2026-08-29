@@ -333,75 +333,135 @@ with tab_monitor:
 
 
 # ============================================================
-# TAB 2: ANALYSIS — Weather vs FortyGuard + Microclimate
+# TAB 2: ANALYSIS — Real Airport Data + WBGT + FortyGuard
 # ============================================================
 with tab_analysis:
+    # Load real KPHX data
+    import json as _json
+    from pathlib import Path
+    from wbgt import estimate_wbgt
+
+    kphx_path = Path(__file__).parent / "data" / "kphx_history.json"
+    kphx_data = {}
+    if kphx_path.exists():
+        with open(kphx_path) as _f:
+            kphx_data = _json.load(_f)
+
+    kphx_available = "heat" in kphx_data and "hourly" in kphx_data.get("heat", {})
+
     st.markdown(
-        '<div class="section-title">🌤️ Weather App vs Heatwatch (FortyGuard)</div>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div style="color:#94A3B8; font-size:0.85rem; margin-bottom:0.8rem;">'
-        'A weather app tells you the temperature at the nearest airport station, not on your actual field. '
-        'FortyGuard measures at <b>2 meters</b> — representative of conditions at the field — '
-        'at <b>100m resolution</b> on the actual field.</div>',
+        '<div class="section-title">🌤️ KPHX Airport vs FortyGuard Fields (Real Data)</div>',
         unsafe_allow_html=True,
     )
 
-    # Default to heat day for this tab
+    if kphx_available:
+        kphx_hourly = kphx_data["heat"]["hourly"]
+        st.markdown(
+            f'<div style="color:#94A3B8; font-size:0.85rem; margin-bottom:0.8rem;">'
+            f'KPHX airport station: {kphx_data["heat"]["station"]}. '
+            f'Source: {kphx_data["heat"]["source"]}. '
+            f'FortyGuard: 6 school field polygons, 100m resolution.</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.warning("KPHX data not found. Run `python fetch_kphx.py` to fetch real airport data.")
+
+    # Get FortyGuard readings at 16:00
     analysis_readings = get_readings(16, "heat")
 
-    comp_data = {
-        "Site": [],
-        "Airport Baseline": [],
-        "FortyGuard (Field)": [],
-        "Difference": [],
-        "Coach sees": [],
-        "Reality": [],
-    }
+    # Build comparison with real KPHX data
+    comp_data = {"Site": [], "KPHX Airport": [], "FortyGuard Field": [], "Difference": [], "WBGT Est.": []}
     for r in analysis_readings:
-        weather_temp = r["temp_c"] - 4.5
+        if kphx_available:
+            kphx_temp = kphx_hourly.get("16", {}).get("temp_c", 0)
+            kphx_rh = kphx_hourly.get("16", {}).get("humidity_pct", 0)
+            kphx_solar = kphx_hourly.get("16", {}).get("solar_w_m2", 0)
+            kphx_wind = kphx_hourly.get("16", {}).get("wind_speed_kmh", 0)
+        else:
+            kphx_temp = r["temp_c"] - 4.5
+            kphx_rh = r["humidity_pct"]
+
+        # WBGT for field conditions
+        wbgt = estimate_wbgt(r["temp_c"], r["humidity_pct"], kphx_solar if kphx_available else 0)
+
         comp_data["Site"].append(r["short_name"])
-        comp_data["Airport Baseline"].append(f"{weather_temp:.1f}°C / {weather_temp*9/5+32:.0f}°F")
-        comp_data["FortyGuard (Field)"].append(f"{r['temp_c']:.1f}°C / {r['temp_f']:.0f}°F")
-        comp_data["Difference"].append(f"+{r['temp_c'] - weather_temp:.1f}°C")
-        comp_data["Coach sees"].append("✅ Looks OK" if weather_temp < 35 else "⚠️ Looks hot")
-        comp_data["Reality"].append(
-            "🔴 DANGER" if r["temp_c"] >= 38 else
-            "🟠 HIGH RISK" if r["temp_c"] >= 35 else "🟢 Moderate"
-        )
+        comp_data["KPHX Airport"].append(f"{kphx_temp:.1f}°C ({kphx_temp*9/5+32:.0f}°F)")
+        comp_data["FortyGuard Field"].append(f"{r['temp_c']:.1f}°C ({r['temp_f']:.0f}°F)")
+        diff = r["temp_c"] - kphx_temp
+        comp_data["Difference"].append(f"{diff:+.1f}°C")
+        comp_data["WBGT Est."].append(f"{wbgt['wbgt_f']:.0f}°F ({wbgt['risk_level'].upper()})")
 
     st.dataframe(pd.DataFrame(comp_data), use_container_width=True, hide_index=True)
 
-    # Bar chart comparison
+    # Bar chart: real KPHX vs FortyGuard
     site_names = comp_data["Site"]
-    weather_temps = [float(t.split("°C")[0]) for t in comp_data["Airport Baseline"]]
-    field_temps = [float(t.split("°C")[0]) for t in comp_data["FortyGuard (Field)"]]
+    if kphx_available:
+        airport_temps = [float(t.split("°C")[0]) for t in comp_data["KPHX Airport"]]
+    else:
+        airport_temps = [float(t.split("°C")[0]) for t in comp_data["KPHX Airport"]]
+    field_temps = [float(t.split("°C")[0]) for t in comp_data["FortyGuard Field"]]
 
     fig_comp = go.Figure()
-    fig_comp.add_trace(go.Bar(name="Airport Baseline (illustrative)", x=site_names, y=weather_temps,
-                               marker_color="#60A5FA", text=[f"{t:.1f}°C" for t in weather_temps], textposition="outside"))
-    fig_comp.add_trace(go.Bar(name="FortyGuard (Field, 2m)", x=site_names, y=field_temps,
-                               marker_color="#EF4444", text=[f"{t:.1f}°C" for t in field_temps], textposition="outside"))
-    fig_comp.add_hline(y=38, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (38°C)", annotation_position="top left")
-    fig_comp.add_hline(y=35, line_dash="dot", line_color="#F97316", annotation_text="RED (35°C)", annotation_position="top left")
-    fig_comp.update_layout(title="Temperature: What Coaches See vs What's Real",
+    fig_comp.add_trace(go.Bar(name="KPHX Airport (Open-Meteo ERA5)", x=site_names, y=[t*9/5+32 for t in airport_temps],
+                               marker_color="#60A5FA", text=[f"{t:.0f}°F" for t in [t*9/5+32 for t in airport_temps]], textposition="outside"))
+    fig_comp.add_trace(go.Bar(name="FortyGuard Field (100m resolution)", x=site_names, y=[t*9/5+32 for t in field_temps],
+                               marker_color="#EF4444", text=[f"{t:.0f}°F" for t in [t*9/5+32 for t in field_temps]], textposition="outside"))
+    fig_comp.add_hline(y=100.4, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (100.4°F)", annotation_position="top left")
+    fig_comp.add_hline(y=95, line_dash="dot", line_color="#F97316", annotation_text="RED (95°F)", annotation_position="top left")
+    fig_comp.update_layout(title="Real Data: KPHX Airport vs FortyGuard Fields — July 15, 2023 4PM",
                            template="plotly_dark", height=380, barmode="group",
-                           yaxis_title="°F", yaxis_range=[25, 50],
+                           yaxis_title="°F", yaxis_range=[80, 130],
                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="center", x=0.5))
     st.plotly_chart(fig_comp, use_container_width=True)
 
+    # WBGT section
+    st.markdown('<div class="section-title">🌡️ WBGT Estimation (AIA Policy Metric)</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div style="color:#94A3B8; font-size:0.85rem; margin-bottom:0.8rem;">'
+        "Current AIA policy (2026-2027) uses <b>Wet Bulb Globe Temperature (WBGT)</b>, not heat index. "
+        "WBGT accounts for temperature, humidity, solar radiation, and wind. "
+        "FortyGuard provides temperature; solar/wind estimates come from KPHX reanalysis data. "
+        "On-field WBGT sensors would provide the most accurate measurement for production use.</div>",
+        unsafe_allow_html=True,
+    )
+
+    wbgt_data = []
+    for r in analysis_readings:
+        if kphx_available:
+            kphx_solar = kphx_hourly.get("16", {}).get("solar_w_m2", 0)
+            kphx_wind_kmh = kphx_hourly.get("16", {}).get("wind_speed_kmh", 0)
+            kphx_wind_ms = kphx_wind_kmh / 3.6
+        else:
+            kphx_solar = 0
+            kphx_wind_ms = 0
+
+        wbgt = estimate_wbgt(r["temp_c"], r["humidity_pct"], kphx_solar, kphx_wind_ms)
+        wbgt_data.append({
+            "Site": r["short_name"],
+            "Temp (°F)": f"{r['temp_f']:.0f}",
+            "WBGT (°F)": f"{wbgt['wbgt_f']:.1f}",
+            "Risk": wbgt["risk_level"].upper(),
+            "Action": wbgt["action"],
+            "Confidence": wbgt["confidence"],
+        })
+
+    st.dataframe(pd.DataFrame(wbgt_data), use_container_width=True, hide_index=True)
+
     # Key insight
-    st.markdown("""
+    st.markdown('''
     <div class="insight-box insight-blue">
-        <div style="font-size:0.95rem; font-weight:700; color:#93C5FD;">💡 The Gap That Kills</div>
+        <div style="font-size:0.95rem; font-weight:700; color:#93C5FD;">💡 Why This Matters</div>
         <div style="font-size:0.85rem; color:#BFDBFE; margin-top:0.3rem;">
-            When the weather app says <b>36°C (97°F)</b> — manageable — the actual field at breathing height is <b>42°C (108°F)</b>.
-            That's the difference between "practice as scheduled" and "cancel immediately."
-            FortyGuard's 2m-elevation, 100m-resolution data captures what no weather station can.
+            On July 15, 2023, KPHX airport recorded <b>115°F</b> at 4 PM.
+            FortyGuard measured <b>108-110°F</b> on the actual school fields.
+            Both are dangerous, but FortyGuard shows <b>site-specific variation</b>
+            that a single airport reading cannot capture.
+            <br><br>
+            <b>WBGT integrates all environmental factors</b> — the metric athletic trainers actually use.
+            Heat Index alone misses solar radiation and wind effects that can add 5-10°F of real heat stress.
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    ''', unsafe_allow_html=True)
 
     # Business callout
     st.markdown("""
