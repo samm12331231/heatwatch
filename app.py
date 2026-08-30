@@ -18,31 +18,40 @@ from site_data import SITE_INFO, HEAT_DAY_CURVES, NULL_DAY_CURVES, get_all_site_
 # ============================================================
 st.markdown("""
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+    * {font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;}
     #MainMenu, header, footer, .stDeployButton {visibility: hidden;}
-    .block-container {padding-top: 0.5rem !important; padding-bottom: 1rem !important; max-width: 1440px !important; padding-left: 2rem !important; padding-right: 2rem !important;}
-    .hero-title {font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #FF6B35, #F7C948); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-    .hero-sub {font-size: 0.85rem; color: #94A3B8;}
-    .stat-num {font-size: 1.4rem; font-weight: 900; line-height: 1;}
-    .stat-lbl {font-size: 0.6rem; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.05em;}
-    .card {background: #1E293B; border: 1px solid #334155; border-radius: 14px; padding: 1rem; text-align: center; min-height: 130px;}
-    .card:hover {border-color: #60A5FA;}
-    .card-name {font-size: 0.75rem; color: #CBD5E1; font-weight: 600;}
-    .card-temp {font-size: 1.8rem; font-weight: 800; line-height: 1.1;}
-    .card-hi {font-size: 0.7rem; color: #64748B;}
-    .card-action {font-size: 0.7rem; font-weight: 700; margin-top: 0.3rem;}
-    .badge {display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;}
-    .badge-black {background: #1F1F1F; color: #EF4444; border: 1px solid #EF4444;}
-    .badge-red {background: #7F1D1D; color: #FCA5A5;}
-    .badge-orange {background: #7C2D12; color: #FDBA74;}
-    .badge-yellow {background: #713F12; color: #FDE68A;}
-    .badge-green {background: #14532D; color: #86EFAC;}
-    .section {font-size: 0.95rem; font-weight: 700; color: #E2E8F0; margin: 1rem 0 0.4rem 0;}
-    .source-tag {background: #1E293B; border: 1px solid #334155; border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.65rem; color: #94A3B8; display: inline-block;}
-    .action-box {border-radius: 8px; padding: 1rem; margin: 0.5rem 0;}
-    .action-danger {background: linear-gradient(135deg, #7F1D1D, #991B1B); border: 1px solid #EF4444;}
-    .action-safe {background: linear-gradient(135deg, #14532D, #166534); border: 1px solid #22C55E;}
-    .action-title {font-size: 1.1rem; font-weight: 700;}
-    .action-detail {font-size: 0.85rem; opacity: 0.9; margin-top: 0.3rem;}
+    .block-container {padding-top: 1.5rem !important; padding-bottom: 2rem !important; max-width: 1400px !important; padding-left: 2.5rem !important; padding-right: 2.5rem !important;}
+    .hero-title {font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, #FF6B35 0%, #F7C948 50%, #FF6B35 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.02em;}
+    .hero-sub {font-size: 0.9rem; color: #94A3B8; font-weight: 400; margin-top: 0.1rem;}
+    .stat-num {font-size: 1.5rem; font-weight: 900; line-height: 1;}
+    .stat-lbl {font-size: 0.6rem; color: #64748B; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;}
+    .card {background: linear-gradient(145deg, #1E293B 0%, #0F172A 100%); border: 1px solid rgba(99, 102, 241, 0.15); border-radius: 16px; padding: 1.2rem 0.8rem; text-align: center; min-height: 140px; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05); transition: all 0.3s ease;}
+    .card:hover {border-color: rgba(99, 102, 241, 0.4); box-shadow: 0 8px 32px rgba(99, 102, 241, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08); transform: translateY(-2px);}
+    .card-name {font-size: 0.7rem; color: #94A3B8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.3rem;}
+    .card-temp {font-size: 2rem; font-weight: 900; line-height: 1.1; letter-spacing: -0.02em;}
+    .card-hi {font-size: 0.7rem; color: #64748B; margin-top: 0.2rem;}
+    .card-action {font-size: 0.65rem; font-weight: 700; margin-top: 0.4rem; padding: 3px 8px; border-radius: 6px; display: inline-block;}
+    .badge {display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;}
+    .badge-black {background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid rgba(239, 68, 68, 0.3);}
+    .badge-red {background: rgba(249, 115, 22, 0.15); color: #F97316; border: 1px solid rgba(249, 115, 22, 0.3);}
+    .badge-orange {background: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3);}
+    .badge-yellow {background: rgba(234, 179, 8, 0.15); color: #EAB308; border: 1px solid rgba(234, 179, 8, 0.3);}
+    .badge-green {background: rgba(34, 197, 94, 0.15); color: #22C55E; border: 1px solid rgba(34, 197, 94, 0.3);}
+    .section {font-size: 0.8rem; font-weight: 700; color: #CBD5E1; margin: 1.5rem 0 0.6rem 0; text-transform: uppercase; letter-spacing: 0.08em;}
+    .source-tag {background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 0.3rem 0.7rem; font-size: 0.7rem; color: #94A3B8; display: inline-block; backdrop-filter: blur(10px);}
+    .action-box {border-radius: 12px; padding: 1.2rem 1.5rem; margin: 0.8rem 0; backdrop-filter: blur(10px);}
+    .action-danger {background: linear-gradient(135deg, rgba(127, 29, 29, 0.9), rgba(153, 27, 27, 0.9)); border: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.15);}
+    .action-safe {background: linear-gradient(135deg, rgba(20, 83, 45, 0.9), rgba(22, 101, 52, 0.9)); border: 1px solid rgba(34, 197, 94, 0.4); box-shadow: 0 4px 20px rgba(34, 197, 94, 0.15);}
+    .action-caution {background: linear-gradient(135deg, rgba(113, 63, 18, 0.9), rgba(120, 53, 15, 0.9)); border: 1px solid rgba(234, 179, 8, 0.4); box-shadow: 0 4px 20px rgba(234, 179, 8, 0.15);}
+    .action-title {font-size: 1.05rem; font-weight: 700; letter-spacing: -0.01em;}
+    .action-detail {font-size: 0.8rem; opacity: 0.9; margin-top: 0.4rem; line-height: 1.5;}
+    .stTabs [data-baseweb="tab-list"] {gap: 0; background: rgba(30, 41, 59, 0.5); border-radius: 10px; padding: 4px;}
+    .stTabs [data-baseweb="tab"] {border-radius: 8px; font-weight: 600; font-size: 0.8rem; padding: 0.5rem 1.2rem;}
+    .stTabs [aria-selected="true"] {background: #334155 !important; color: #F8FAFC !important;}
+    div[data-baseweb="slider"] {border-radius: 8px;}
+    .stRadio > div {flex-direction: row !important; gap: 0.5rem !important;}
+    .stRadio > div > label {background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 8px; padding: 0.4rem 1rem; font-size: 0.8rem; font-weight: 500;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -193,9 +202,9 @@ with tab_monitor:
         n_caution = sum(1 for r in readings if r["policy_level"] == "yellow")
         if n_caution > 0:
             st.markdown(f"""
-            <div style="background:#713F12;border:1px solid #EAB308;border-radius:8px;padding:0.8rem;margin:0.5rem 0;">
-                <div style="font-size:1rem;font-weight:700;color:#FDE68A;">{n_caution}/6 fields require mandatory cooling protocols</div>
-                <div style="font-size:0.85rem;color:#FEF3C7;margin-top:0.2rem;">
+            <div class="action-box action-caution">
+                <div class="action-title" style="color:#FDE68A;">{n_caution}/6 fields require mandatory cooling protocols</div>
+                <div class="action-detail" style="color:#FEF3C7;">
                     Water breaks every 30 min · Cooling zones on-site · Acclimatization checks for new athletes · AIA Yellow-tier guidelines active
                 </div>
             </div>
