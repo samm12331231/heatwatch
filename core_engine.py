@@ -63,23 +63,9 @@ def compute_heat_index(temp_c: float, humidity_pct: float) -> float:
     return round((hi_f - 32) * 5 / 9, 2)
 
 
-# ============================================================
-# POLICY THRESHOLD CHECK
-# ============================================================
-
-def check_policy_threshold(heat_index_c: float) -> str:
-    """DEPRECATED: Check heat index against named policy thresholds.
-
-    This function is kept for eval_harness.py and fetch_quick.py backward compatibility.
-    The primary policy metric is now WBGT — use get_policy_level(wbgt_f) from config.py.
-    Heat index is used as a secondary signal for rescheduling slot comparison.
-    """
-    thresholds = HEAT_POLICY["thresholds"]
-    for level in ("black", "red", "orange", "yellow"):
-        if heat_index_c >= thresholds[level]["max_heat_index_c"]:
-            return level
-    # Green: anything below yellow threshold (30°C / 86°F)
-    return "green"
+# NOTE: check_policy_threshold(heat_index_c) has been removed.
+# All policy decisions now use get_policy_level(wbgt_f) from config.py.
+# Heat index is only used as a secondary signal for rescheduling slot comparison.
 
 
 def get_policy_action(level: str) -> str:

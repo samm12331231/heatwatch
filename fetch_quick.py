@@ -9,7 +9,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from config import SITES, API_SETTINGS
-from core_engine import fetch_temperature, compute_heat_index, check_policy_threshold
+from core_engine import fetch_temperature
+from wbgt import estimate_wbgt
+from config import get_policy_level
 
 DATA_DIR = Path("data/fortyguard")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -33,9 +35,10 @@ for time_slot in ["12:00", "16:00"]:
         print(f"  Fetching {site['id']} @ {date} {time_slot}...", end=" ", flush=True)
         temp = fetch_temperature(client, site, date, time_slot)
         heat_cache[key] = {"temperature_c": round(temp, 2), "site_id": site["id"], "date": date, "time": time_slot}
-        hi = compute_heat_index(temp, 15 if time_slot == "16:00" else 20)
-        level = check_policy_threshold(hi)
-        print(f"{temp:.1f}°C → HI {hi:.1f}°C → {level.upper()}")
+        rh = 15 if time_slot == "16:00" else 20
+        wbgt = estimate_wbgt(temp, rh, 900.0, 1.5)
+        level = get_policy_level(wbgt["wbgt_f"])
+        print(f"{temp:.1f}°C → WBGT {wbgt['wbgt_f']:.0f}F → {level.upper()}")
         time.sleep(2)
 
 with open(DATA_DIR / "event_2023-07-15_to_2023-07-15.json", "w") as f:
@@ -49,9 +52,10 @@ for time_slot in ["12:00", "16:00"]:
         print(f"  Fetching {site['id']} @ {date} {time_slot}...", end=" ", flush=True)
         temp = fetch_temperature(client, site, date, time_slot)
         null_cache[key] = {"temperature_c": round(temp, 2), "site_id": site["id"], "date": date, "time": time_slot}
-        hi = compute_heat_index(temp, 15 if time_slot == "16:00" else 20)
-        level = check_policy_threshold(hi)
-        print(f"{temp:.1f}°C → HI {hi:.1f}°C → {level.upper()}")
+        rh = 15 if time_slot == "16:00" else 20
+        wbgt = estimate_wbgt(temp, rh, 900.0, 1.5)
+        level = get_policy_level(wbgt["wbgt_f"])
+        print(f"{temp:.1f}°C → WBGT {wbgt['wbgt_f']:.0f}F → {level.upper()}")
         time.sleep(2)
 
 with open(DATA_DIR / "null_days.json", "w") as f:

@@ -23,7 +23,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List
 
 from config import SITES, HEAT_POLICY, EVAL_SETTINGS, PHOENIX_HUMIDITY
-from core_engine import compute_heat_index, check_policy_threshold
+from wbgt import estimate_wbgt
+from config import get_policy_level
 
 DATA_DIR = Path("data/fortyguard")
 
@@ -54,11 +55,12 @@ def load_null_data() -> dict:
 
 def simulate_detection(temp_c: float, humidity_pct: float = 20.0) -> dict:
     """Simulate the detection logic for a single temperature reading."""
-    heat_index = compute_heat_index(temp_c, humidity_pct)
-    policy_level = check_policy_threshold(heat_index)
+    # Conservative: solar=900, wind=1.5 for outdoor athletes in daytime
+    wbgt = estimate_wbgt(temp_c, humidity_pct, 900.0, 1.5)
+    policy_level = get_policy_level(wbgt["wbgt_f"])
     return {
         "temperature_c": temp_c,
-        "heat_index_c": heat_index,
+        "wbgt_f": wbgt["wbgt_f"],
         "policy_level": policy_level,
         "alert": policy_level in ("red", "black"),
     }
