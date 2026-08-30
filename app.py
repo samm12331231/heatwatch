@@ -326,23 +326,28 @@ with tab_audit:
     import os
     db_path = "heatwatch_audit.db"
     audit_data = []
+    db_has_records = False
     if os.path.exists(db_path):
-        _conn = _sqlite3.connect(db_path)
-        _conn.row_factory = _sqlite3.Row
-        rows = _conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT 50").fetchall()
-        _conn.close()
-        for row in rows:
-            keys = row.keys()
-            audit_data.append({
-                "Time": f"{row['query_date']} {row['query_time']}" if 'query_date' in keys else row['timestamp'][:16],
-                "Site": row["site_name"],
-                "Temp": f"{row['temperature_c']:.1f}C" if row["temperature_c"] else "--",
-                "HI": f"{row['heat_index_c']:.1f}C" if row["heat_index_c"] else "--",
-                "Level": row["policy_level"].upper() if row["policy_level"] else "--",
-                "Alert": row["alert_decision"],
-                "Action": row["reschedule_action"],
-                "Hash": row["hash_self"][:12] + "..." if row["hash_self"] else "--",
-            })
+        try:
+            _conn = _sqlite3.connect(db_path)
+            _conn.row_factory = _sqlite3.Row
+            rows = _conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT 50").fetchall()
+            _conn.close()
+            db_has_records = len(rows) > 0
+            for row in rows:
+                keys = row.keys()
+                audit_data.append({
+                    "Time": f"{row['query_date']} {row['query_time']}" if 'query_date' in keys else row['timestamp'][:16],
+                    "Site": row["site_name"],
+                    "Temp": f"{row['temperature_c']:.1f}C" if row["temperature_c"] else "--",
+                    "HI": f"{row['heat_index_c']:.1f}C" if row["heat_index_c"] else "--",
+                    "Level": row["policy_level"].upper() if row["policy_level"] else "--",
+                    "Alert": row["alert_decision"],
+                    "Action": row["reschedule_action"],
+                    "Hash": row["hash_self"][:12] + "..." if row["hash_self"] else "--",
+                })
+        except Exception as e:
+            st.warning(f"Audit DB issue: {e}. Click **Run Safety Check** to reinitialize.")
     else:
         st.info("No audit database found. Click **Run Safety Check** to populate the audit trail.")
 
@@ -353,18 +358,24 @@ with tab_audit:
         with col1:
             if st.button("Verify Chain Integrity", use_container_width=True):
                 import hashlib
-                _conn = _sqlite3.connect(db_path)
-                db_rows = _conn.execute("SELECT hash_prev, hash_self, site_id, temperature_c, policy_level, alert_decision FROM audit_log ORDER BY id").fetchall()
-                _conn.close()
-                prev = "GENESIS"
-                valid = 0
-                for r in db_rows:
-                    payload = json.dumps({"site_id": r[2], "temperature_c": r[3], "policy_level": r[4], "alert_decision": r[5]}, sort_keys=True)
-                    expected = hashlib.sha256(f"{prev}{payload}".encode()).hexdigest()
-                    if expected == r[1]:
-                        valid += 1
-                    prev = r[1]
-                st.success(f"Chain verified: {valid}/{len(db_rows)} records intact")
+                try:
+                    _conn = _sqlite3.connect(db_path)
+                    db_rows = _conn.execute("SELECT hash_prev, hash_self, site_id, temperature_c, policy_level, alert_decision FROM audit_log ORDER BY id").fetchall()
+                    _conn.close()
+                    if not db_rows:
+                        st.info("Audit log is empty — no records to verify. Run Safety Check first.")
+                    else:
+                        prev = "GENESIS"
+                        valid = 0
+                        for r in db_rows:
+                            payload = json.dumps({"site_id": r[2], "temperature_c": r[3], "policy_level": r[4], "alert_decision": r[5]}, sort_keys=True)
+                            expected = hashlib.sha256(f"{prev}{payload}".encode()).hexdigest()
+                            if expected == r[1]:
+                                valid += 1
+                            prev = r[1]
+                        st.success(f"Chain verified: {valid}/{len(db_rows)} records intact")
+                except Exception as e:
+                    st.error(f"Verification failed: {e}")
         with col2:
             if st.button("Simulate Tampering", use_container_width=True):
                 st.error("This would require modifying the SQLite DB on disk. In production, any mutation breaks the hash chain.")
