@@ -138,7 +138,7 @@ with ctrl2:
     is_heat = "Heat" in day_type
 with ctrl3:
     st.markdown("<div style='height: 1.8rem'></div>", unsafe_allow_html=True)
-    run_agent = st.button("▶ Run Safety Check", type="primary", use_container_width=True)
+    run_agent = st.button("▶ Run Safety Check", type="primary", width="stretch")
 
 day_key = "heat" if is_heat else "null"
 readings = get_readings(hour, day_key)
@@ -233,7 +233,7 @@ with tab_monitor:
         schedule_rows.append({"School": r["short_name"], "Current": f"{r['temp_f']:.0f}°F", "Level": LL[lv], "Action": action, "Details": reason})
 
     schedule_df = pd.DataFrame(schedule_rows)
-    st.dataframe(schedule_df, use_container_width=True, hide_index=True)
+    st.dataframe(schedule_df, width="stretch", hide_index=True)
 
     # 2. SUMMARY BOX
     n_move = sum(1 for r in readings if r["policy_level"] in ("red", "black"))
@@ -298,7 +298,7 @@ with tab_monitor:
     fig.update_layout(template="plotly_dark", height=320, yaxis_title="Temperature (°F)", xaxis_title="Hour of Day",
                       yaxis_range=[77, 122] if is_heat else [59, 113],
                       legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"), margin=dict(t=40))
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # 5. MICROCLIMATE VARIANCE — why FortyGuard matters (Gemini's recommendation)
     temps_all = [r["temp_f"] for r in readings]
@@ -348,7 +348,7 @@ with tab_analysis:
         comp["Diff"].append(f"{(r['temp_c']-kt)*9/5:+.0f}°F")
         comp["WBGT"].append(f"{wbgt['wbgt_f']:.0f}°F {LL[wbgt['risk_level']]}")
 
-    st.dataframe(pd.DataFrame(comp), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(comp), width="stretch", hide_index=True)
 
     # Bar chart
     site_names = comp["Site"]
@@ -360,7 +360,7 @@ with tab_analysis:
     fig2.add_hline(y=WBGT_BLACK, line_dash="dash", line_color="#EF4444", annotation_text=f"BLACK ({WBGT_BLACK:.0f}°F WBGT)")
     fig2.update_layout(template="plotly_dark", height=350, barmode="group", yaxis_title="°F", yaxis_range=[80, 130],
                        legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"), margin=dict(t=40))
-    st.plotly_chart(fig2, use_container_width=True)
+    st.plotly_chart(fig2, width="stretch")
 
     # Cost comparison
     st.markdown('<div class="section">Cost: Cancel vs Reschedule</div>', unsafe_allow_html=True)
@@ -370,13 +370,13 @@ with tab_analysis:
         fig_cost.add_trace(go.Bar(x=["Naive Cancel"], y=[12000], marker_color="#EF4444", text=["$12,000"], textposition="outside"))
         fig_cost.add_trace(go.Bar(x=["Heatwatch Reschedule"], y=[1500], marker_color="#22C55E", text=["$1,500"], textposition="outside"))
         fig_cost.update_layout(template="plotly_dark", height=280, showlegend=False, yaxis_title="$", margin=dict(t=20))
-        st.plotly_chart(fig_cost, use_container_width=True)
+        st.plotly_chart(fig_cost, width="stretch")
     with c2:
         fig_season = go.Figure()
         fig_season.add_trace(go.Scatter(x=["Aug","Sep","Oct"], y=[12000,6000,2000], name="Without", line=dict(color="#EF4444",width=2), fill="tozeroy", fillcolor="rgba(239,68,68,0.1)"))
         fig_season.add_trace(go.Scatter(x=["Aug","Sep","Oct"], y=[1500,750,250], name="With", line=dict(color="#22C55E",width=2), fill="tozeroy", fillcolor="rgba(34,197,94,0.1)"))
         fig_season.update_layout(template="plotly_dark", height=280, yaxis_title="$", margin=dict(t=20))
-        st.plotly_chart(fig_season, use_container_width=True)
+        st.plotly_chart(fig_season, width="stretch")
 
 
 # ============================================================
@@ -428,7 +428,7 @@ with tab_report:
         })
 
     summary_df = pd.DataFrame(summary_rows)
-    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+    st.dataframe(summary_df, width="stretch", hide_index=True)
 
     # ── Cost Savings ──
     st.markdown('<div class="section">Cost Impact</div>', unsafe_allow_html=True)
@@ -448,7 +448,7 @@ with tab_report:
     fig_cost.add_trace(go.Bar(x=["Naive Cancel"], y=[naive_cost], marker_color="#EF4444", text=[f"${naive_cost:,}"], textposition="outside"))
     fig_cost.add_trace(go.Bar(x=["Heatwatch Reschedule"], y=[agent_cost], marker_color="#22C55E", text=[f"${agent_cost:,}"], textposition="outside"))
     fig_cost.update_layout(template="plotly_dark", height=260, showlegend=False, yaxis_title="$", margin=dict(t=10, b=10), bargap=0.4)
-    st.plotly_chart(fig_cost, use_container_width=True)
+    st.plotly_chart(fig_cost, width="stretch")
 
     # ── Per-Site Heatmaps (2 columns × 3 rows) ──
     st.markdown('<div class="section">Weekly Risk Heatmaps</div>', unsafe_allow_html=True)
@@ -490,7 +490,7 @@ with tab_report:
                     xaxis_title="", yaxis_title="",
                     margin=dict(l=35, r=10, t=35, b=25),
                 )
-                st.plotly_chart(fig_hm, use_container_width=True)
+                st.plotly_chart(fig_hm, width="stretch")
 
 
 # ============================================================
@@ -530,11 +530,11 @@ with tab_audit:
         st.info("No audit database found. Click **Run Safety Check** to populate the audit trail.")
 
     if audit_data:
-        st.dataframe(pd.DataFrame(audit_data), use_container_width=True, hide_index=True)
+        st.dataframe(pd.DataFrame(audit_data), width="stretch", hide_index=True)
 
         col1, col2 = st.columns(2)
         with col1:
-            if st.button("Verify Chain Integrity", use_container_width=True):
+            if st.button("Verify Chain Integrity", width="stretch"):
                 import hashlib
                 try:
                     _conn = _sqlite3.connect(db_path)
@@ -557,7 +557,7 @@ with tab_audit:
                 except Exception as e:
                     st.error(f"Verification failed: {e}")
         with col2:
-            if st.button("Simulate Tampering", use_container_width=True):
+            if st.button("Simulate Tampering", width="stretch"):
                 st.error("This would require modifying the SQLite DB on disk. In production, any mutation breaks the hash chain.")
     else:
         st.warning("Run the safety check to populate the audit trail.")
