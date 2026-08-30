@@ -70,9 +70,9 @@ def compute_heat_index(temp_c: float, humidity_pct: float) -> float:
 def check_policy_threshold(heat_index_c: float) -> str:
     """Check heat index against named policy thresholds. Returns level string.
 
-    NOTE: Current AIA policy (2026-2027) uses WBGT, not heat index.
-    We use heat index as a proxy because FortyGuard provides temperature,
-    not WBGT. In production, on-field WBGT sensors would be the primary gate.
+    NOTE: This function is kept for backward compatibility.
+    The primary policy metric is now WBGT (see get_policy_level in config.py).
+    Heat index is used as a secondary signal for rescheduling slot comparison.
     """
     thresholds = HEAT_POLICY["thresholds"]
     for level in ("black", "red", "orange", "yellow"):

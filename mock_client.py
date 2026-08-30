@@ -73,7 +73,11 @@ class MockFortyGuardClient:
     def _generate_mock_heatmap(self, polygon_aoi: dict, start_date: str, start_time: str) -> dict:
         """Generate realistic mock heatmap data for Phoenix in August."""
         import random
-        random.seed(hash(f"{start_date}{start_time}"))
+        import hashlib
+        # Deterministic seed per site+time (includes polygon for cross-site variance)
+        seed_str = json.dumps(polygon_aoi, sort_keys=True) + start_date + start_time
+        seed = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
+        random.seed(seed)
 
         # Phoenix August afternoon temps: 38-45°C range
         base_temp = 40.0 + random.uniform(-2, 3)
@@ -118,7 +122,9 @@ class MockFortyGuardClient:
     def _generate_mock_env_params(self, point: dict) -> dict:
         """Generate realistic mock environmental parameters."""
         import random
-        random.seed(hash(str(point)))
+        import hashlib
+        seed = int(hashlib.md5(json.dumps(point, sort_keys=True).encode()).hexdigest()[:8], 16)
+        random.seed(seed)
 
         # Phoenix August: hot and dry
         temp = 40.0 + random.uniform(-2, 3)

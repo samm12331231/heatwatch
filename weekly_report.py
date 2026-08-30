@@ -9,9 +9,10 @@ import plotly.graph_objects as go
 import pandas as pd
 from datetime import datetime, timedelta
 from site_data import (
-    SITE_INFO, get_all_site_readings, get_heat_index,
+    SITE_INFO, get_all_site_readings,
     get_policy_level, get_humidity_for_hour, HEAT_DAY_CURVES, NULL_DAY_CURVES,
 )
+from wbgt import estimate_wbgt
 
 LEVEL_COLORS = {
     "black": "#EF4444", "red": "#F97316", "orange": "#F59E0B",
@@ -47,8 +48,10 @@ def get_weekly_risk_matrix(site_id: str, day_type: str = "heat") -> pd.DataFrame
             hour = int(slot.split(":")[0])
             temp_c = curves[site_id].get(hour, 0) + day_offset
             humidity = get_humidity_for_hour(hour)
-            hi = get_heat_index(temp_c, humidity)
-            level = get_policy_level(hi)
+            solar = 800.0 if 6 <= hour <= 18 else 0.0
+            wind = 2.0 if 6 <= hour <= 18 else 0.0
+            wbgt = estimate_wbgt(temp_c, humidity, solar, wind)
+            level = get_policy_level(wbgt["wbgt_f"])
             row[slot] = f"{level.upper()}\n{temp_c:.0f}°C"
             row[f"{slot}_level"] = level
             row[f"{slot}_temp"] = temp_c
@@ -82,9 +85,11 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
             hour = int(slot.split(":")[0])
             temp_c = curves[site_id].get(hour, 0) + day_offset
             humidity = get_humidity_for_hour(hour)
-            hi = get_heat_index(temp_c, humidity)
-            level = get_policy_level(hi)
-            row_z.append(hi)
+            solar = 800.0 if 6 <= hour <= 18 else 0.0
+            wind = 2.0 if 6 <= hour <= 18 else 0.0
+            wbgt = estimate_wbgt(temp_c, humidity, solar, wind)
+            level = get_policy_level(wbgt["wbgt_f"])
+            row_z.append(wbgt["wbgt_f"])
             row_text.append(f"{temp_c:.0f}°C")
         z.append(row_z)
         text.append(row_text)
@@ -99,12 +104,12 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
             [0.7, "#F97316"],   # red
             [1.0, "#EF4444"],   # black
         ],
-        zmin=25, zmax=42,
+        zmin=70, zmax=105,
         textfont={"size": 10, "color": "white", "family": "Arial, sans-serif"},
         colorbar=dict(
-            title="Heat Index (°C)",
-            tickvals=[27, 30, 32, 35, 38],
-            ticktext=["27°C", "30°C", "32°C", "35°C", "38°C"],
+            title="WBGT (°F)",
+            tickvals=[82, 87, 90, 92],
+            ticktext=["82°F", "87°F", "90°F", "92°F"],
         ),
     ))
 
@@ -144,8 +149,10 @@ def render_weekly_report(site: dict, day_type: str = "heat"):
     for hour in range(7, 20):
         temp_c = curves[site_id].get(hour, 0)
         humidity = get_humidity_for_hour(hour)
-        hi = get_heat_index(temp_c, humidity)
-        level = get_policy_level(hi)
+        solar = 800.0 if 6 <= hour <= 18 else 0.0
+        wind = 2.0 if 6 <= hour <= 18 else 0.0
+        wbgt = estimate_wbgt(temp_c, humidity, solar, wind)
+        level = get_policy_level(wbgt["wbgt_f"])
         total_slots += 1
         if level in ("red", "black"):
             dangerous_slots += 1
@@ -189,8 +196,10 @@ def render_coach_report(day_type: str = "heat"):
         total = 0
         for hour in range(7, 20):
             temp_c = curves[site["id"]].get(hour, 0)
-            hi = get_heat_index(temp_c, get_humidity_for_hour(hour))
-            level = get_policy_level(hi)
+            solar = 800.0 if 6 <= hour <= 18 else 0.0
+            wind = 2.0 if 6 <= hour <= 18 else 0.0
+            wbgt = estimate_wbgt(temp_c, get_humidity_for_hour(hour), solar, wind)
+            level = get_policy_level(wbgt["wbgt_f"])
             total += 1
             if level in ("red", "black"):
                 dangerous += 1
