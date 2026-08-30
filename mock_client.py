@@ -71,16 +71,30 @@ class MockFortyGuardClient:
         return None
 
     def _generate_mock_heatmap(self, polygon_aoi: dict, start_date: str, start_time: str) -> dict:
-        """Generate realistic mock heatmap data for Phoenix in August."""
+        """Generate mock heatmap data aligned with site_data.py pre-computed curves."""
         import random
         import hashlib
-        # Deterministic seed per site+time (includes polygon for cross-site variance)
+        from site_data import HEAT_DAY_CURVES, NULL_DAY_CURVES
+        from config import SITES
+
+        # Determine which day type this is
+        day_type = "heat" if "07-15" in start_date or "07-16" in start_date or "07-17" in start_date else "null"
+        curves = HEAT_DAY_CURVES if day_type == "heat" else NULL_DAY_CURVES
+        hour = int(start_time.split(":")[0]) if ":" in start_time else 16
+
+        # Find the matching site by polygon coordinates
+        base_temp = 42.0  # fallback
+        for site in SITES:
+            site_poly = json.dumps(site["polygon_aoi"], sort_keys=True)
+            input_poly = json.dumps(polygon_aoi, sort_keys=True)
+            if site_poly == input_poly or site["id"] in str(polygon_aoi):
+                base_temp = curves[site["id"]].get(hour, 42.0)
+                break
+
+        # Add small random variance for tile spread
         seed_str = json.dumps(polygon_aoi, sort_keys=True) + start_date + start_time
         seed = int(hashlib.md5(seed_str.encode()).hexdigest()[:8], 16)
         random.seed(seed)
-
-        # Phoenix August afternoon temps: 38-45°C range
-        base_temp = 40.0 + random.uniform(-2, 3)
         
         # Generate 16 tiles (4x4 grid)
         tiles = []

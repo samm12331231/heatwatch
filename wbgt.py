@@ -41,20 +41,15 @@ def estimate_wbgt(temp_c: float, humidity_pct: float,
             - 4.686035)
 
     # Step 2: Estimate black globe temperature (Tg)
-    # Tg ≈ Ta + (solar辐射 / (h_c)) - (wind effect)
-    # Simplified: Tg ≈ Ta + solar_factor - wind_cooling
+    # Bernard et al. approximation: Tg = Ta + 0.0084*Q - 0.6*V
+    # where Q = solar radiation (W/m²), V = wind speed (m/s)
+    # At 900 W/m², 2 m/s: Tg = Ta + 7.6 - 1.2 = Ta + 6.4°C (realistic)
+    # No solar: conservative estimate of Ta + 5°C (moderate sun)
     if solar_w_m2 > 0:
-        # Black globe absorbs solar radiation; typical outdoor h_c ≈ 10-15 W/m²/K
-        solar_factor = solar_w_m2 / 12.0  # conservative estimate
-        if wind_speed_ms > 0:
-            # Wind reduces globe temp: h_c increases with wind
-            wind_cooling = min(solar_factor * 0.3, wind_speed_ms * 1.5)
-        else:
-            wind_cooling = 0
-        tg_c = temp_c + solar_factor - wind_cooling
+        tg_c = temp_c + 0.0084 * solar_w_m2 - 0.6 * wind_speed_ms
+        # Cap globe temp boost at 15°C above air temp (physical limit)
+        tg_c = min(tg_c, temp_c + 15.0)
     else:
-        # No solar data: estimate Tg as slightly above Ta
-        # Conservative: assume moderate sun
         tg_c = temp_c + 5.0
 
     # Step 3: WBGT = 0.7 * Tw + 0.2 * Tg + 0.1 * Ta

@@ -183,11 +183,11 @@ def render_coach_report(day_type: str = "heat"):
     """)
 
     for site in SITE_INFO:
-        with st.expander(f"🏫 {site['name']}", expanded=False):
+        with st.expander(site['name'], expanded=False):
             render_weekly_report(site, day_type)
 
     # Fleet summary
-    st.markdown('<div class="section-header">🏫 Fleet Summary</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Fleet Summary</div>', unsafe_allow_html=True)
 
     summary_data = []
     for site in SITE_INFO:

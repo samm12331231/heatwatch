@@ -77,7 +77,7 @@ with ctrl1:
     hour_idx = st.select_slider("Practice Time", options=hour_options, value="16:00", label_visibility="visible")
     hour = int(hour_idx.split(":")[0])
 with ctrl2:
-    day_type = st.radio("Day", ["🔥 Heat Day", "❄️ Null Day"], horizontal=True, label_visibility="visible")
+    day_type = st.radio("Day", ["Heat Day", "Null Day"], horizontal=True, label_visibility="visible")
     is_heat = "Heat" in day_type
 with ctrl3:
     st.markdown("<div style='height: 1.8rem'></div>", unsafe_allow_html=True)
@@ -95,7 +95,7 @@ if n_danger > 0:
     safe_count = sum(1 for r in safe_readings if r["policy_level"] in ("green", "yellow"))
     st.markdown(f"""
     <div class="action-box action-danger">
-        <div class="action-title" style="color:#FCA5A5;">⚠️ ACTION REQUIRED — WBGT exceeds safe threshold at {n_danger}/6 fields</div>
+        <div class="action-title" style="color:#FCA5A5;">ACTION REQUIRED — WBGT exceeds safe threshold at {n_danger}/6 fields</div>
         <div class="action-detail" style="color:#FECACA;">
             <b>What to do:</b> Move affected practices to 7:00 AM when {safe_count}/6 fields are safe.
             <b>Why:</b> WBGT exceeds AIA limits at affected fields. DO NOT PRACTICE outdoors at these sites.
@@ -105,7 +105,7 @@ if n_danger > 0:
 else:
     st.markdown(f"""
     <div class="action-box action-safe">
-        <div class="action-title" style="color:#86EFAC;">✅ All clear — {hour:02d}:00 is safe for practice</div>
+        <div class="action-title" style="color:#86EFAC;">All clear — {hour:02d}:00 is safe for practice</div>
         <div class="action-detail" style="color:#BBF7D0;">
             All 6 fields are within safe limits. No rescheduling needed.
         </div>
@@ -152,7 +152,7 @@ with tab_monitor:
     morning_temp_avg = sum(r["temp_f"] for r in morning_readings) / len(morning_readings)
 
     # 1. RECOMMENDED SCHEDULE — This is the first thing a coach sees
-    st.markdown("<div class='section'>📋 Recommended Schedule</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section'>Recommended Schedule</div>", unsafe_allow_html=True)
 
     schedule_rows = []
     for r in readings:
@@ -179,7 +179,7 @@ with tab_monitor:
     if n_move > 0:
         st.markdown(f"""
         <div style="background:#14532D;border:1px solid #22C55E;border-radius:8px;padding:0.8rem;margin:0.5rem 0;">
-            <div style="font-size:1rem;font-weight:700;color:#86EFAC;">✅ Move {n_move} practices to 7:00 AM</div>
+            <div style="font-size:1rem;font-weight:700;color:#86EFAC;">Move {n_move} practices to 7:00 AM</div>
             <div style="font-size:0.85rem;color:#BBF7D0;margin-top:0.2rem;">
                 All 6 fields are safe at 7 AM ({morning_temp_avg:.0f}°F avg). Current time ({hour:02d}:00) is {readings[0]['temp_f']:.0f}°F — {readings[0]['temp_f'] - morning_temp_avg:.0f}°F hotter.
             </div>
@@ -188,7 +188,7 @@ with tab_monitor:
     else:
         st.markdown("""
         <div style="background:#14532D;border:1px solid #22C55E;border-radius:8px;padding:0.8rem;margin:0.5rem 0;">
-            <div style="font-size:1rem;font-weight:700;color:#86EFAC;">✅ All practices can proceed as scheduled</div>
+            <div style="font-size:1rem;font-weight:700;color:#86EFAC;">All practices can proceed as scheduled</div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -212,7 +212,7 @@ with tab_monitor:
             </div>""", unsafe_allow_html=True)
 
     # 4. 24-HOUR TIMELINE
-    st.markdown("<div class='section'>📈 24-Hour Temperature</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section'>24-Hour Temperature</div>", unsafe_allow_html=True)
     curves = HEAT_DAY_CURVES if is_heat else NULL_DAY_CURVES
     fig = go.Figure()
     for site in SITE_INFO:
@@ -258,7 +258,7 @@ with tab_analysis:
             kphx_data = json.load(_f)
     kphx_ok = "heat" in kphx_data and "hourly" in kphx_data.get("heat", {})
 
-    st.markdown('<div class="section">🌤️ Airport vs Field (Real Data)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section">Airport vs Field (Real Data)</div>', unsafe_allow_html=True)
     if kphx_ok:
         kh = kphx_data["heat"]["hourly"]
         st.markdown(f'<div class="source-tag">KPHX: {kphx_data["heat"]["station"]} · {kphx_data["heat"]["source"]}</div>', unsafe_allow_html=True)
@@ -291,7 +291,7 @@ with tab_analysis:
     st.plotly_chart(fig2, use_container_width=True)
 
     # Cost comparison
-    st.markdown('<div class="section">💰 Cost: Cancel vs Reschedule</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section">Cost: Cancel vs Reschedule</div>', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1:
         fig_cost = go.Figure()
@@ -312,7 +312,7 @@ with tab_analysis:
 # ============================================================
 with tab_report:
     from weekly_report import render_coach_report
-    report_type = st.radio("Day Type", ["🔥 Heat Day", "❄️ Null Day"], horizontal=True, key="rpt")
+    report_type = st.radio("Day Type", ["Heat Day", "Null Day"], horizontal=True, key="rpt")
     render_coach_report("heat" if "Heat" in report_type else "null")
 
 
