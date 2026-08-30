@@ -134,7 +134,8 @@ if run_agent:
             finally:
                 engine.close()
         except Exception as e:
-            st.error(f"Engine error: {e}")
+            st.warning(f"CoreEngine unavailable ({type(e).__name__}). Showing pre-computed analysis from site data.")
+            st.info(f"The autonomous agent requires the MockFortyGuardClient. Dashboard data below uses pre-computed FortyGuard observations.")
 
 # ============================================================
 # TABS
