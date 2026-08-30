@@ -374,9 +374,114 @@ with tab_analysis:
 # TAB 3: SCHEDULE
 # ============================================================
 with tab_report:
-    from weekly_report import render_coach_report
+    from weekly_report import get_weekly_risk_matrix, LEVEL_COLORS
+    from site_data import SITE_INFO, HEAT_DAY_CURVES, NULL_DAY_CURVES, get_humidity_for_hour, get_policy_level
+    from wbgt import estimate_wbgt
+
     report_type = st.radio("Day Type", ["Heat Day", "Null Day"], horizontal=True, key="rpt")
-    render_coach_report("heat" if "Heat" in report_type else "null")
+    day_type = "heat" if "Heat" in report_type else "null"
+    curves = HEAT_DAY_CURVES if day_type == "heat" else NULL_DAY_CURVES
+
+    st.markdown('<div class="section">Fleet Overview</div>', unsafe_allow_html=True)
+
+    # ── Fleet Summary Table (real counts) ──
+    summary_rows = []
+    for site in SITE_INFO:
+        site_id = site["id"]
+        dangerous = 0
+        caution = 0
+        safe = 0
+        worst_wbgt = 0
+        worst_slot = ""
+        for hour in range(7, 20):
+            temp_c = curves[site_id].get(hour, 0)
+            solar = 900.0 if 6 <= hour <= 18 else 0.0
+            wind = 1.5 if 6 <= hour <= 18 else 0.0
+            wbgt = estimate_wbgt(temp_c, get_humidity_for_hour(hour), solar, wind)
+            level = get_policy_level(wbgt["wbgt_f"])
+            if level in ("red", "black"):
+                dangerous += 1
+            elif level in ("orange", "yellow"):
+                caution += 1
+            else:
+                safe += 1
+            if wbgt["wbgt_f"] > worst_wbgt:
+                worst_wbgt = wbgt["wbgt_f"]
+                worst_slot = f"{hour:02d}:00"
+
+        summary_rows.append({
+            "Site": site["short_name"],
+            "Safe": safe,
+            "Caution": caution,
+            "Danger": dangerous,
+            "Worst WBGT": f"{worst_wbgt:.0f}F @ {worst_slot}",
+            "Status": "DANGER" if dangerous > 6 else "CAUTION" if caution > 0 else "CLEAR",
+        })
+
+    summary_df = pd.DataFrame(summary_rows)
+    st.dataframe(summary_df, use_container_width=True, hide_index=True)
+
+    # ── Cost Savings ──
+    st.markdown('<div class="section">Cost Impact</div>', unsafe_allow_html=True)
+    total_danger_hours = sum(r["Danger"] for r in summary_rows)
+    total_caution_hours = sum(r["Caution"] for r in summary_rows)
+    naive_cost = total_danger_hours * 4 * 500  # $500/school for full cancel
+    agent_cost = (total_danger_hours * 4 * 150) + (total_caution_hours * 4 * 50)  # reschedule + caution
+    savings = naive_cost - agent_cost
+
+    cc1, cc2, cc3, cc4 = st.columns(4)
+    cc1.metric("Danger Hours", f"{total_danger_hours}", delta="across 6 fields")
+    cc2.metric("Naive Cancel Cost", f"${naive_cost:,}", delta="full practice cancellation")
+    cc3.metric("Heatwatch Cost", f"${agent_cost:,}", delta="targeted reschedule")
+    cc4.metric("Savings", f"${savings:,}", delta="per event", delta_color="normal")
+
+    fig_cost = go.Figure()
+    fig_cost.add_trace(go.Bar(x=["Naive Cancel"], y=[naive_cost], marker_color="#EF4444", text=[f"${naive_cost:,}"], textposition="outside"))
+    fig_cost.add_trace(go.Bar(x=["Heatwatch Reschedule"], y=[agent_cost], marker_color="#22C55E", text=[f"${agent_cost:,}"], textposition="outside"))
+    fig_cost.update_layout(template="plotly_dark", height=260, showlegend=False, yaxis_title="$", margin=dict(t=10, b=10), bargap=0.4)
+    st.plotly_chart(fig_cost, use_container_width=True)
+
+    # ── Per-Site Heatmaps (2 columns × 3 rows) ──
+    st.markdown('<div class="section">Weekly Risk Heatmaps</div>', unsafe_allow_html=True)
+    for row_start in range(0, 6, 2):
+        cols = st.columns(2)
+        for ci, idx in enumerate([row_start, row_start + 1]):
+            if idx >= len(SITE_INFO):
+                break
+            site = SITE_INFO[idx]
+            with cols[ci]:
+                matrix = get_weekly_risk_matrix(site["id"], day_type)
+                time_slots = ["07:00", "09:00", "12:00", "14:00", "16:00", "18:00"]
+                days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                z_vals = []
+                for _, row in matrix.iterrows():
+                    z_vals.append([row[f"{s}_temp"] * 9/5 + 32 for s in time_slots])
+                text_labels = []
+                for ri in range(7):
+                    row_labels = []
+                    for s in time_slots:
+                        row_labels.append(str(matrix.iloc[ri][f"{s}_level"]).upper())
+                    text_labels.append(row_labels)
+                fig_hm = go.Figure(data=go.Heatmap(
+                    z=z_vals, x=time_slots, y=days,
+                    colorscale=[
+                        [0, "#22C55E"], [0.25, "#EAB308"], [0.5, "#F59E0B"],
+                        [0.75, "#F97316"], [1.0, "#EF4444"],
+                    ],
+                    zmin=75, zmax=110 if day_type == "heat" else 100,
+                    text=text_labels,
+                    texttemplate="%{text}",
+                    textfont={"size": 9, "color": "white"},
+                    colorbar=dict(title="Temp F", len=0.8),
+                    hovertemplate="Day: %{y}<br>Time: %{x}<br>Temp: %{z:.0f}F<extra></extra>",
+                ))
+                fig_hm.update_layout(
+                    title=dict(text=site["short_name"], font=dict(size=12)),
+                    template="plotly_dark", height=220,
+                    xaxis_title="", yaxis_title="",
+                    margin=dict(l=35, r=10, t=35, b=25),
+                )
+                st.plotly_chart(fig_hm, use_container_width=True)
 
 
 # ============================================================
