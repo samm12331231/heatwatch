@@ -116,7 +116,8 @@ with col_stats:
         '<div><span class="stat-num" style="color:#F59E0B;">12h</span> <span class="stat-lbl">LOOKAHEAD</span></div>'
         '</div>', unsafe_allow_html=True)
 
-st.markdown('<div class="source-tag">🟡 Historical scenario · July 15, 2023 · FortyGuard observations at 12 PM & 4 PM · hours between estimated</div>', unsafe_allow_html=True)
+st.markdown('<div class="source-tag">Historical scenario · July 15, 2023 · FortyGuard observations at 12 PM & 4 PM · hours between estimated</div>', unsafe_allow_html=True)
+st.markdown('<div style="display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:20px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);font-size:0.65rem;font-weight:600;color:#4ADE80;margin-top:0.3rem;">DEMO MODE · Mock data · No API key required</div>', unsafe_allow_html=True)
 
 # Controls — visible at top
 ctrl1, ctrl2, ctrl3 = st.columns([3, 1, 1])
@@ -558,4 +559,4 @@ with tab_audit:
 # FOOTER
 # ============================================================
 st.markdown("---")
-st.markdown('<div style="text-align:center; color:#475569; font-size:0.65rem;">FortyGuard 2m spatial temperature · WBGT primary metric (AIA 82/87/90/92°F) · Asymmetric cost decision · Skeptic verification · Hash-chained audit · Track 6 — Agentic · FortyGuard Hackathon 2026</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center; color:#475569; font-size:0.65rem;">FortyGuard 2m spatial temperature · WBGT (AIA 82/87/90/92°F) · Skeptic verification · Hash-chained audit · Track 6 Agentic · FortyGuard Hackathon 2026</div>', unsafe_allow_html=True)

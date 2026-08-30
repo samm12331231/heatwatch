@@ -15,7 +15,6 @@ import sqlite3
 import json
 import hashlib
 import time
-import sys
 import os
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
