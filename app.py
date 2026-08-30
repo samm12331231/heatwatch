@@ -98,7 +98,7 @@ if n_danger > 0:
         <div class="action-title" style="color:#FCA5A5;">ACTION REQUIRED — WBGT exceeds safe threshold at {n_danger}/6 fields</div>
         <div class="action-detail" style="color:#FECACA;">
             <b>What to do:</b> Move affected practices to 7:00 AM when {safe_count}/6 fields are safe.
-            <b>Why:</b> WBGT exceeds AIA limits at affected fields. DO NOT PRACTICE outdoors at these sites.
+            <b>Why:</b> WBGT {readings[0]['wbgt_f']:.0f}°F requires increased rest breaks and athlete monitoring per AIA guidelines.
         </div>
     </div>
     """, unsafe_allow_html=True)

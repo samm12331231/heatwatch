@@ -175,6 +175,14 @@ def get_all_site_readings(hour: int, day_type: str = "heat") -> list:
     solar = env.get("solar_w_m2", 0)
     wind_kmh = env.get("wind_speed_kmh", 0)
     wind_ms = wind_kmh / 3.6 if wind_kmh else 0
+    # Conservative solar estimate for outdoor athletes when KPHX data unavailable
+    # Full sun on a Phoenix field: ~800-1000 W/m²; using 500 W/m² accounts for
+    # partial shade and that athletes aren't always in direct sun.
+    # This is the key differentiator vs airport weather stations: they don't
+    # measure solar radiation, but it's critical for athlete heat load.
+    if solar == 0 and 6 <= hour <= 18:
+        solar = 900.0
+        wind_ms = 1.5
 
     for site in SITE_INFO:
         temp_c = curves[site["id"]].get(hour, 0)

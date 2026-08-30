@@ -250,10 +250,10 @@ SAMPLE_SCHEDULE = [
 # Used as humidity placeholder when env_params is unavailable
 PHOENIX_HUMIDITY = {
     "month": 8,
-    "avg_relative_humidity_pct": 20.0,   # Phoenix in August is very dry
-    "morning_humidity_pct": 40.0,         # Conservative: NWS climatology + safety margin
-    "midday_humidity_pct": 15.0,
-    "afternoon_humidity_pct": 12.0,
+    "avg_relative_humidity_pct": 25.0,   # Phoenix August average
+    "morning_humidity_pct": 45.0,         # Conservative: monsoon-season mornings
+    "midday_humidity_pct": 20.0,          # Midday drying
+    "afternoon_humidity_pct": 30.0,       # Afternoon: monsoon season peak, realistic for July Phoenix
 }
 
 
