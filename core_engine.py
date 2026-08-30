@@ -3,8 +3,12 @@ Heatwatch Core Engine
 Deterministic decision layer: detect → alert → skeptic-lite → re-plan → draft memo
 
 The engine queries FortyGuard for temperature at each site across 3 time buckets
-(morning, midday, afternoon), computes heat index, checks policy thresholds,
-runs cost-based alert logic, reschedules if needed, and logs everything to SQLite.
+(morning, midday, afternoon), computes WBGT (primary metric), checks AIA policy
+thresholds, runs cost-based alert logic, reschedules if needed, and logs everything
+to SQLite with hash-chained audit trail.
+
+WBGT is the primary decision metric (AIA 2026-2027).
+Heat index is used as a secondary signal for slot comparison during rescheduling.
 """
 
 import sqlite3
@@ -18,8 +22,9 @@ from typing import Optional, Dict, List
 
 from config import (
     SITES, HEAT_POLICY, TIME_BUCKETS, COST_PARAMS,
-    API_SETTINGS, PHOENIX_HUMIDITY,
+    API_SETTINGS, PHOENIX_HUMIDITY, get_policy_level,
 )
+from wbgt import estimate_wbgt
 
 
 # ============================================================
@@ -239,15 +244,22 @@ def reschedule(activity: dict, morning_temp: float, midday_temp: float,
                afternoon_temp: float, current_bucket: str) -> dict:
     """Move activity to the coolest safe time bucket.
 
-    Compares HEAT INDEX (not raw temp) against policy thresholds,
-    consistent with check_policy_threshold.
+    Compares WBGT (primary metric) across time buckets.
+    Uses heat index as a tiebreaker for equal-WBGT slots.
     """
-    # Convert raw temps to heat index for fair comparison
+    # Compute WBGT for each time bucket
+    bucket_wbgt = {}
     bucket_hi = {}
+    hour_map = {"morning": 9, "midday": 13, "afternoon": 16}
     for b, t in [("morning", morning_temp), ("midday", midday_temp), ("afternoon", afternoon_temp)]:
-        hour_map = {"morning": 9, "midday": 13, "afternoon": 16}
         h = hour_map[b]
-        rh = 35.0 if h < 11 else (15.0 if h < 15 else 12.0)
+        rh = PHOENIX_HUMIDITY["morning_humidity_pct"] if h < 11 else (
+            PHOENIX_HUMIDITY["midday_humidity_pct"] if h < 15 else PHOENIX_HUMIDITY["afternoon_humidity_pct"])
+        # Conservative solar/wind for outdoor sports
+        solar = 800.0 if 6 <= h <= 18 else 0.0
+        wind = 2.0 if 6 <= h <= 18 else 0.0
+        wbgt = estimate_wbgt(t, rh, solar, wind)
+        bucket_wbgt[b] = wbgt["wbgt_f"]
         bucket_hi[b] = compute_heat_index(t, rh)
 
     bucket_temps = {
@@ -255,10 +267,11 @@ def reschedule(activity: dict, morning_temp: float, midday_temp: float,
         "midday": midday_temp,
         "afternoon": afternoon_temp,
     }
-    red_threshold = HEAT_POLICY["thresholds"]["red"]["max_heat_index_c"]
+    # Use WBGT 92F as the cancel threshold (AIA black level)
+    cancel_threshold = 92.0
 
     safe_buckets = [
-        (b, t) for b, t in bucket_hi.items() if t < red_threshold
+        (b, wbgt_f) for b, wbgt_f in bucket_wbgt.items() if wbgt_f < cancel_threshold
     ]
 
     if not safe_buckets:
@@ -269,7 +282,7 @@ def reschedule(activity: dict, morning_temp: float, midday_temp: float,
             "reason": "All time buckets exceed safe threshold — recommend indoor or cancel",
         }
 
-    safest_bucket, safest_temp = min(safe_buckets, key=lambda x: x[1])
+    safest_bucket, safest_wbgt = min(safe_buckets, key=lambda x: x[1])
 
     if safest_bucket == current_bucket:
         return {
@@ -284,8 +297,8 @@ def reschedule(activity: dict, morning_temp: float, midday_temp: float,
         "new_bucket": safest_bucket,
         "new_time": TIME_BUCKETS[safest_bucket]["start"],
         "reason": (
-            f"Moved from {current_bucket} ({bucket_temps[current_bucket]:.1f}°C) "
-            f"to {safest_bucket} ({safest_temp:.1f}°C)"
+            f"Moved from {current_bucket} (WBGT {bucket_wbgt[current_bucket]:.0f}°F) "
+            f"to {safest_bucket} (WBGT {safest_wbgt:.0f}°F)"
         ),
     }
 
@@ -306,6 +319,8 @@ def init_audit_db(db_path: str = "heatwatch_audit.db") -> sqlite3.Connection:
             query_time TEXT,
             temperature_c REAL,
             heat_index_c REAL,
+            wbgt_c REAL,
+            wbgt_f REAL,
             humidity_pct REAL,
             policy_level TEXT,
             alert_decision TEXT,
@@ -335,11 +350,11 @@ def log_decision(conn: sqlite3.Connection, decision: dict) -> int:
     cursor.execute("""
         INSERT INTO audit_log (
             timestamp, site_id, site_name, query_date, query_time,
-            temperature_c, heat_index_c, humidity_pct, policy_level,
-            alert_decision, cost_analysis, skeptic_result,
+            temperature_c, heat_index_c, wbgt_c, wbgt_f, humidity_pct,
+            policy_level, alert_decision, cost_analysis, skeptic_result,
             reschedule_action, reschedule_detail, memo,
             hash_prev, hash_self
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         decision.get("timestamp"),
         decision.get("site_id"),
@@ -348,6 +363,8 @@ def log_decision(conn: sqlite3.Connection, decision: dict) -> int:
         decision.get("query_time"),
         decision.get("temperature_c"),
         decision.get("heat_index_c"),
+        decision.get("wbgt_c"),
+        decision.get("wbgt_f"),
         decision.get("humidity_pct"),
         decision.get("policy_level"),
         decision.get("alert_decision"),
@@ -373,6 +390,8 @@ def draft_memo(decision: dict) -> str:
     level = decision.get("policy_level", "unknown").upper()
     temp = decision.get("temperature_c", 0)
     hi = decision.get("heat_index_c", 0)
+    wbgt_c = decision.get("wbgt_c", 0)
+    wbgt_f = decision.get("wbgt_f", 0)
     action = decision.get("reschedule_action", "UNKNOWN")
     reason = decision.get("reschedule_detail", "")
 
@@ -383,7 +402,8 @@ def draft_memo(decision: dict) -> str:
         f"HEATWATCH ALERT — {decision.get('timestamp', 'N/A')}\n\n"
         f"Site: {site}\n"
         f"Temperature: {temp:.1f}°C ({temp_f:.1f}°F)\n"
-        f"Heat Index: {hi:.1f}°C ({hi_f:.1f}°F)\n"
+        f"WBGT: {wbgt_c:.1f}°C ({wbgt_f:.1f}°F) — PRIMARY METRIC\n"
+        f"Heat Index: {hi:.1f}°C ({hi_f:.1f}°F) — secondary\n"
         f"Policy Level: {level}\n"
         f"Decision: {action}\n\n"
         f"{reason}\n\n"
@@ -471,7 +491,7 @@ def fetch_temperature(client, site: dict, target_date: str,
 class CoreEngine:
     """
     Orchestrates the full decision pipeline per site:
-    fetch → heat-index → policy → cost → skeptic → reschedule → memo → log
+    fetch → WBGT → policy → cost → skeptic → reschedule → memo → log
     """
 
     def __init__(self, client, db_path: str = "heatwatch_audit.db"):
@@ -496,6 +516,9 @@ class CoreEngine:
                    target_time: str = "14:00",
                    all_site_temps: dict = None) -> dict:
         """Run the full decision pipeline for a single site.
+
+        Uses WBGT (not heat index) as the primary policy metric.
+        Pipeline: fetch → WBGT → policy → cost → skeptic → reschedule → memo → log
 
         Args:
             all_site_temps: dict of {site_id: temp_c} for all sites at target_time.
@@ -526,8 +549,8 @@ class CoreEngine:
         else:
             print(f"   Temperature: {temperature_c:.2f}C ({temperature_c * 9/5 + 32:.1f}F)")
 
-        # Step 2: Compute heat index
-        print("\n[2/5] Computing heat index...")
+        # Step 2: Compute WBGT (primary metric) + heat index (secondary)
+        print("\n[2/5] Computing WBGT...")
         # Use time-appropriate humidity
         hour = int(target_time.split(":")[0])
         if hour < 11:
@@ -537,15 +560,33 @@ class CoreEngine:
         else:
             humidity_pct = PHOENIX_HUMIDITY["afternoon_humidity_pct"]
 
-        heat_index_c = compute_heat_index(temperature_c, humidity_pct)
-        print(f"   Humidity: {humidity_pct}% (time-of-day estimate)")
-        print(f"   Heat Index: {heat_index_c:.2f}°C ({heat_index_c * 9/5 + 32:.1f}°F)")
+        # WBGT = primary metric (AIA 2026-2027 standard)
+        # Solar/wind estimated from KPHX data or conservative defaults
+        hour_int = int(target_time.split(":")[0])
+        if 6 <= hour_int <= 18:
+            solar_w_m2 = 800.0  # conservative: full sun
+            wind_ms = 2.0       # light breeze
+        else:
+            solar_w_m2 = 0.0
+            wind_ms = 0.0
 
-        # Step 3: Check policy threshold
-        print("\n[3/5] Checking policy threshold...")
-        policy_level = check_policy_threshold(heat_index_c)
+        wbgt_result = estimate_wbgt(temperature_c, humidity_pct, solar_w_m2, wind_ms)
+        wbgt_c = wbgt_result["wbgt_c"]
+        wbgt_f = wbgt_result["wbgt_f"]
+        confidence = wbgt_result["confidence"]
+
+        # Heat index = secondary metric (for rescheduling comparison)
+        heat_index_c = compute_heat_index(temperature_c, humidity_pct)
+
+        print(f"   Humidity: {humidity_pct}% (time-of-day estimate)")
+        print(f"   WBGT: {wbgt_c:.1f}°C ({wbgt_f:.1f}°F) — confidence: {confidence}")
+        print(f"   Heat Index: {heat_index_c:.2f}°C ({heat_index_c * 9/5 + 32:.1f}°F) — secondary")
+
+        # Step 3: Check policy threshold (WBGT is primary)
+        print("\n[3/5] Checking WBGT policy threshold...")
+        policy_level = get_policy_level(wbgt_f)
         policy_action = get_policy_action(policy_level)
-        print(f"   Policy Level: {policy_level.upper()}")
+        print(f"   Policy Level: {policy_level.upper()} (WBGT {wbgt_f:.1f}°F)")
         print(f"   Required Action: {policy_action}")
 
         # Step 4: Cost analysis
@@ -600,6 +641,9 @@ class CoreEngine:
             "query_time": target_time,
             "temperature_c": round(temperature_c, 2),
             "heat_index_c": round(heat_index_c, 2),
+            "wbgt_c": round(wbgt_c, 1),
+            "wbgt_f": round(wbgt_f, 1),
+            "wbgt_confidence": confidence,
             "humidity_pct": humidity_pct,
             "policy_level": policy_level,
             "policy_action": policy_action,

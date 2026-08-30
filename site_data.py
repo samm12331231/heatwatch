@@ -7,7 +7,7 @@ Data provenance per hour:
   - 05:00-11:00, 17:00-23:00: INTERPOLATED (piecewise linear between anchors + diurnal profile)
 """
 
-from config import SITES
+from config import SITES, get_policy_level
 from wbgt import estimate_wbgt
 from pathlib import Path
 import json as _json
@@ -146,24 +146,7 @@ for site in SITES:
 from core_engine import compute_heat_index as get_heat_index
 
 
-def get_policy_level(wbgt_f: float) -> str:
-    """AIA 2026-2027 WBGT-based policy levels (primary metric).
-
-    Thresholds aligned with UIL/TAPPS/GHSA/NCAA guidance:
-    - 82°F: increase breaks
-    - 87°F: limit duration, restrict equipment
-    - 90°F: further limit, no conditioning
-    - 92°F: no outdoor workouts
-    """
-    if wbgt_f >= 92.0:
-        return "black"
-    elif wbgt_f >= 90.0:
-        return "red"
-    elif wbgt_f >= 87.0:
-        return "orange"
-    elif wbgt_f >= 82.0:
-        return "yellow"
-    return "green"
+# get_policy_level is imported from config (single source of truth)
 
 
 def get_humidity_for_hour(hour: int) -> float:

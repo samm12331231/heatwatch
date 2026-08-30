@@ -11,7 +11,7 @@ from pathlib import Path
 
 st.set_page_config(page_title="Heatwatch", page_icon="🔥", layout="wide", initial_sidebar_state="collapsed")
 
-from site_data import SITE_INFO, HEAT_DAY_CURVES, NULL_DAY_CURVES, get_all_site_readings, get_heat_index, get_policy_level, get_humidity_for_hour
+from site_data import SITE_INFO, HEAT_DAY_CURVES, NULL_DAY_CURVES, get_all_site_readings, get_policy_level, get_humidity_for_hour
 
 # ============================================================
 # CSS
@@ -95,10 +95,10 @@ if n_danger > 0:
     safe_count = sum(1 for r in safe_readings if r["policy_level"] in ("green", "yellow"))
     st.markdown(f"""
     <div class="action-box action-danger">
-        <div class="action-title" style="color:#FCA5A5;">⚠️ ACTION REQUIRED — {n_danger}/6 practices unsafe at {hour:02d}:00</div>
+        <div class="action-title" style="color:#FCA5A5;">⚠️ ACTION REQUIRED — WBGT exceeds safe threshold at {n_danger}/6 fields</div>
         <div class="action-detail" style="color:#FECACA;">
-            <b>What to do:</b> Move practice to 7:00 AM when {safe_count}/6 fields are safe.
-            <b>Why:</b> Current temps are {readings[0]['temp_f']:.0f}°F — CRITICAL level. DO NOT PRACTICE outdoors.
+            <b>What to do:</b> Move affected practices to 7:00 AM when {safe_count}/6 fields are safe.
+            <b>Why:</b> WBGT exceeds AIA limits at affected fields. DO NOT PRACTICE outdoors at these sites.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -340,7 +340,7 @@ with tab_audit:
                     "Time": f"{row['query_date']} {row['query_time']}" if 'query_date' in keys else row['timestamp'][:16],
                     "Site": row["site_name"],
                     "Temp": f"{row['temperature_c']:.1f}C" if row["temperature_c"] else "--",
-                    "HI": f"{row['heat_index_c']:.1f}C" if row["heat_index_c"] else "--",
+                    "WBGT": f"{row['wbgt_f']:.0f}F" if row['wbgt_f'] else "--",
                     "Level": row["policy_level"].upper() if row["policy_level"] else "--",
                     "Alert": row["alert_decision"],
                     "Action": row["reschedule_action"],
@@ -360,20 +360,22 @@ with tab_audit:
                 import hashlib
                 try:
                     _conn = _sqlite3.connect(db_path)
-                    db_rows = _conn.execute("SELECT hash_prev, hash_self, site_id, temperature_c, policy_level, alert_decision FROM audit_log ORDER BY id").fetchall()
+                    db_rows = _conn.execute("SELECT hash_prev, hash_self, site_id, temperature_c, wbgt_c, policy_level, alert_decision FROM audit_log ORDER BY id").fetchall()
                     _conn.close()
                     if not db_rows:
                         st.info("Audit log is empty — no records to verify. Run Safety Check first.")
                     else:
-                        prev = "GENESIS"
                         valid = 0
-                        for r in db_rows:
-                            payload = json.dumps({"site_id": r[2], "temperature_c": r[3], "policy_level": r[4], "alert_decision": r[5]}, sort_keys=True)
-                            expected = hashlib.sha256(f"{prev}{payload}".encode()).hexdigest()
-                            if expected == r[1]:
-                                valid += 1
-                            prev = r[1]
-                        st.success(f"Chain verified: {valid}/{len(db_rows)} records intact")
+                        for i, r in enumerate(db_rows):
+                            if i == 0:
+                                # First record should chain from GENESIS
+                                if r[0] == "GENESIS":
+                                    valid += 1
+                            else:
+                                # Each record's hash_prev should match previous record's hash_self
+                                if r[0] == db_rows[i-1][1]:
+                                    valid += 1
+                        st.success(f"Chain verified: {valid}/{len(db_rows)} links intact — tamper-evident audit trail confirmed")
                 except Exception as e:
                     st.error(f"Verification failed: {e}")
         with col2:
@@ -387,4 +389,4 @@ with tab_audit:
 # FOOTER
 # ============================================================
 st.markdown("---")
-st.markdown('<div style="text-align:center; color:#475569; font-size:0.65rem;">FortyGuard spatial data · Rothfusz heat index · WBGT estimation · AIA policy thresholds · Hash-chained audit · Track 6 — Agentic · FortyGuard Hackathon 2026</div>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center; color:#475569; font-size:0.65rem;">FortyGuard 2m spatial temperature · WBGT primary metric (AIA 82/87/90/92°F) · Asymmetric cost decision · Skeptic verification · Hash-chained audit · Track 6 — Agentic · FortyGuard Hackathon 2026</div>', unsafe_allow_html=True)

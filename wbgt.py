@@ -79,7 +79,7 @@ def estimate_wbgt(temp_c: float, humidity_pct: float,
     elif wbgt_f >= 90.0:
         risk_level = "red"
         action = "Limit to 30 min, mandatory breaks, no equipment"
-    elif wbgt_f >= 85.0:
+    elif wbgt_f >= 87.0:
         risk_level = "orange"
         action = "Limit to 60 min, additional water breaks"
     elif wbgt_f >= 82.0:

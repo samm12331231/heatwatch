@@ -161,29 +161,33 @@ SITES = [
     },
 ]
 
-# --- Heat policy thresholds (based on AIA state guidelines) ---
+# --- Heat policy thresholds (AIA 2026-2027 WBGT-based) ---
+# Source: AIA Sports Medicine Advisory Committee, UIL/TAPPS/GHSA/NCAA guidance
+# WBGT is the primary decision metric for athletic heat safety.
+# Thresholds: 82/87/90/92°F (aligned with state high school policies).
 HEAT_POLICY = {
     "name": "Arizona Interscholastic Association Heat Acclimatization Guidelines",
-    "source": "AIA Sports Medicine Advisory Committee",
+    "source": "AIA Sports Medicine Advisory Committee (2026-2027)",
+    "metric": "WBGT (Wet Bulb Globe Temperature)",
     "thresholds": {
         "green": {
-            "max_heat_index_c": 27.0,   # 80.6°F - Normal activity
+            "max_wbgt_f": 82.0,    # <82°F - Normal activity with breaks
             "action": "standard_practice",
         },
         "yellow": {
-            "max_heat_index_c": 30.0,   # 86°F - Increased rest breaks
+            "max_wbgt_f": 87.0,    # 82-86.9°F - Increase breaks, monitor athletes
             "action": "increase_rest_breaks",
         },
         "orange": {
-            "max_heat_index_c": 32.0,   # 89.6°F - Limit outdoor intensity
+            "max_wbgt_f": 90.0,    # 87-89.9°F - Limit duration, restrict equipment
             "action": "limit_intensity",
         },
         "red": {
-            "max_heat_index_c": 35.0,   # 95°F - Move indoors or reschedule
+            "max_wbgt_f": 92.0,    # 90-91.9°F - No conditioning, more breaks
             "action": "reschedule_or_suspend",
         },
         "black": {
-            "max_heat_index_c": 38.0,   # 100.4°F - Cancel outdoor activity
+            "max_wbgt_f": 999.0,   # >92°F - No outdoor workouts
             "action": "cancel_outdoor",
         },
     },
@@ -251,3 +255,24 @@ PHOENIX_HUMIDITY = {
     "midday_humidity_pct": 15.0,
     "afternoon_humidity_pct": 12.0,
 }
+
+
+def get_policy_level(wbgt_f: float) -> str:
+    """WBGT-based policy level (single source of truth).
+
+    AIA 2026-2027 thresholds (UIL/TAPPS/GHSA/NCAA aligned):
+    - <82°F: green (standard practice)
+    - 82-86.9°F: yellow (increase breaks)
+    - 87-89.9°F: orange (limit duration, restrict equipment)
+    - 90-91.9°F: red (no conditioning, more breaks)
+    - >92°F: black (no outdoor workouts)
+    """
+    if wbgt_f >= 92.0:
+        return "black"
+    elif wbgt_f >= 90.0:
+        return "red"
+    elif wbgt_f >= 87.0:
+        return "orange"
+    elif wbgt_f >= 82.0:
+        return "yellow"
+    return "green"
