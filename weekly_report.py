@@ -48,8 +48,8 @@ def get_weekly_risk_matrix(site_id: str, day_type: str = "heat") -> pd.DataFrame
             hour = int(slot.split(":")[0])
             temp_c = curves[site_id].get(hour, 0) + day_offset
             humidity = get_humidity_for_hour(hour)
-            solar = 800.0 if 6 <= hour <= 18 else 0.0
-            wind = 2.0 if 6 <= hour <= 18 else 0.0
+            solar = 900.0 if 6 <= hour <= 18 else 0.0
+            wind = 1.5 if 6 <= hour <= 18 else 0.0
             wbgt = estimate_wbgt(temp_c, humidity, solar, wind)
             level = get_policy_level(wbgt["wbgt_f"])
             row[slot] = f"{level.upper()}\n{temp_c:.0f}°C"
@@ -85,8 +85,8 @@ def create_weekly_heatmap(site_id: str, site_name: str, day_type: str = "heat") 
             hour = int(slot.split(":")[0])
             temp_c = curves[site_id].get(hour, 0) + day_offset
             humidity = get_humidity_for_hour(hour)
-            solar = 800.0 if 6 <= hour <= 18 else 0.0
-            wind = 2.0 if 6 <= hour <= 18 else 0.0
+            solar = 900.0 if 6 <= hour <= 18 else 0.0
+            wind = 1.5 if 6 <= hour <= 18 else 0.0
             wbgt = estimate_wbgt(temp_c, humidity, solar, wind)
             level = get_policy_level(wbgt["wbgt_f"])
             row_z.append(wbgt["wbgt_f"])
@@ -196,8 +196,8 @@ def render_coach_report(day_type: str = "heat"):
         total = 0
         for hour in range(7, 20):
             temp_c = curves[site["id"]].get(hour, 0)
-            solar = 800.0 if 6 <= hour <= 18 else 0.0
-            wind = 2.0 if 6 <= hour <= 18 else 0.0
+            solar = 900.0 if 6 <= hour <= 18 else 0.0
+            wind = 1.5 if 6 <= hour <= 18 else 0.0
             wbgt = estimate_wbgt(temp_c, get_humidity_for_hour(hour), solar, wind)
             level = get_policy_level(wbgt["wbgt_f"])
             total += 1

@@ -12,6 +12,7 @@ from pathlib import Path
 st.set_page_config(page_title="Heatwatch", page_icon="🔥", layout="wide", initial_sidebar_state="collapsed")
 
 from site_data import SITE_INFO, HEAT_DAY_CURVES, NULL_DAY_CURVES, get_all_site_readings, get_policy_level, get_humidity_for_hour
+from config import HEAT_POLICY
 
 # ============================================================
 # CSS
@@ -97,6 +98,13 @@ hr { border-color: var(--border) !important; }
 # Colors
 LC = {"black": "#EF4444", "red": "#F97316", "orange": "#F59E0B", "yellow": "#EAB308", "green": "#22C55E"}
 LL = {"black": "CRITICAL", "red": "RED", "orange": "ORANGE", "yellow": "YELLOW", "green": "SAFE"}
+
+# Thresholds from config (single source of truth)
+_T = HEAT_POLICY["thresholds"]
+WBGT_YELLOW = _T["yellow"]["max_wbgt_f"]  # 82
+WBGT_ORANGE = _T["orange"]["max_wbgt_f"]  # 87
+WBGT_RED = _T["red"]["max_wbgt_f"]        # 90
+WBGT_BLACK = _T["black"]["max_wbgt_f"]     # 92 (capped at 999)
 
 def get_readings(hour, day_key): return get_all_site_readings(hour, day_key)
 def danger_count(r): return sum(1 for x in r if x["alert"])
@@ -283,8 +291,8 @@ with tab_monitor:
         hours = list(range(5, 24))
         temps_f = [(curves[site["id"]].get(h, 0) * 9/5 + 32) for h in hours]
         fig.add_trace(go.Scatter(x=hours, y=temps_f, name=site["short_name"], mode="lines", line=dict(width=2.5)))
-    fig.add_hline(y=92, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (92°F WBGT)", annotation_position="top left")
-    fig.add_hline(y=90, line_dash="dot", line_color="#F97316", annotation_text="RED (90°F WBGT)", annotation_position="top left")
+    fig.add_hline(y=WBGT_BLACK, line_dash="dash", line_color="#EF4444", annotation_text=f"BLACK ({WBGT_BLACK:.0f}°F WBGT)", annotation_position="top left")
+    fig.add_hline(y=WBGT_RED, line_dash="dot", line_color="#F97316", annotation_text=f"RED ({WBGT_RED:.0f}°F WBGT)", annotation_position="top left")
     fig.add_vline(x=hour, line_color="#60A5FA", line_width=3, annotation_text=f"Now: {hour:02d}:00", annotation_position="top")
     fig.add_vline(x=7, line_color="#22C55E", line_width=2, line_dash="dot", annotation_text="7 AM (safe)", annotation_position="top")
     fig.update_layout(template="plotly_dark", height=320, yaxis_title="Temperature (°F)", xaxis_title="Hour of Day",
@@ -349,7 +357,7 @@ with tab_analysis:
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(name="KPHX Airport", x=site_names, y=apt, marker_color="#60A5FA", text=[f"{t:.0f}°F" for t in apt], textposition="outside"))
     fig2.add_trace(go.Bar(name="FortyGuard Field", x=site_names, y=fld, marker_color="#EF4444", text=[f"{t:.0f}°F" for t in fld], textposition="outside"))
-    fig2.add_hline(y=92, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (92°F WBGT)")
+    fig2.add_hline(y=WBGT_BLACK, line_dash="dash", line_color="#EF4444", annotation_text=f"BLACK ({WBGT_BLACK:.0f}°F WBGT)")
     fig2.update_layout(template="plotly_dark", height=350, barmode="group", yaxis_title="°F", yaxis_range=[80, 130],
                        legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"), margin=dict(t=40))
     st.plotly_chart(fig2, use_container_width=True)
