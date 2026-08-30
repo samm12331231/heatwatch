@@ -162,13 +162,17 @@ with tab_monitor:
             action_color = "#22C55E"
             reason = f"Current: {r['temp_f']:.0f}°F ({LL[lv]}) → 7 AM: {morning_readings[readings.index(r)]['temp_f']:.0f}°F"
         elif lv == "orange":
-            action = "ADD BREAKS"
+            action = "ADD BREAKS + RESTRICT"
             action_color = "#F59E0B"
-            reason = f"Monitor closely — {r['temp_f']:.0f}°F"
+            reason = f"Limit to 60 min, additional water breaks — {r['temp_f']:.0f}°F"
+        elif lv == "yellow":
+            action = "CAUTION — 30MIN BREAKS"
+            action_color = "#EAB308"
+            reason = f"Mandatory water breaks every 30 min, cooling zones ready — {r['temp_f']:.0f}°F"
         else:
             action = "PROCEED"
             action_color = "#22C55E"
-            reason = f"Safe — {r['temp_f']:.0f}°F ({LL[lv]})"
+            reason = f"Standard practice — {r['temp_f']:.0f}°F"
         schedule_rows.append({"School": r["short_name"], "Current": f"{r['temp_f']:.0f}°F", "Level": LL[lv], "Action": action, "Details": reason})
 
     schedule_df = pd.DataFrame(schedule_rows)
@@ -186,11 +190,22 @@ with tab_monitor:
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown("""
-        <div style="background:#14532D;border:1px solid #22C55E;border-radius:8px;padding:0.8rem;margin:0.5rem 0;">
-            <div style="font-size:1rem;font-weight:700;color:#86EFAC;">All practices can proceed as scheduled</div>
-        </div>
-        """, unsafe_allow_html=True)
+        n_caution = sum(1 for r in readings if r["policy_level"] == "yellow")
+        if n_caution > 0:
+            st.markdown(f"""
+            <div style="background:#713F12;border:1px solid #EAB308;border-radius:8px;padding:0.8rem;margin:0.5rem 0;">
+                <div style="font-size:1rem;font-weight:700;color:#FDE68A;">{n_caution}/6 fields require mandatory cooling protocols</div>
+                <div style="font-size:0.85rem;color:#FEF3C7;margin-top:0.2rem;">
+                    Water breaks every 30 min · Cooling zones on-site · Acclimatization checks for new athletes · AIA Yellow-tier guidelines active
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div style="background:#14532D;border:1px solid #22C55E;border-radius:8px;padding:0.8rem;margin:0.5rem 0;">
+                <div style="font-size:1rem;font-weight:700;color:#86EFAC;">All practices can proceed as scheduled</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     # 3. SITE CARDS — WBGT primary, white temp, colored badge
     st.markdown("<div class='section'>All Sites — WBGT Primary (AIA 2026-2027)</div>", unsafe_allow_html=True)
@@ -199,8 +214,8 @@ with tab_monitor:
         with cols[i]:
             lv = r["policy_level"]
             prox = f'<div style="font-size:0.6rem;color:#F59E0B;margin-top:0.15rem;">{r["proximity_warning"]}</div>' if r["proximity_warning"] else ""
-            action_color = "#EF4444" if lv in ("red", "black") else ("#F59E0B" if lv == "orange" else "#22C55E")
-            action_text = "→ MOVE" if lv in ("red", "black") else ("→ MONITOR" if lv == "orange" else "✓ OK")
+            action_color = "#EF4444" if lv in ("red", "black") else ("#F59E0B" if lv == "orange" else ("#EAB308" if lv == "yellow" else "#22C55E"))
+            action_text = "→ MOVE" if lv in ("red", "black") else ("→ MONITOR" if lv == "orange" else ("→ 30MIN BREAKS" if lv == "yellow" else "✓ OK"))
             st.markdown(f"""
             <div class="card">
                 <div class="card-name">{r['short_name']}</div>
