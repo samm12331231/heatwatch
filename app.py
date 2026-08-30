@@ -219,8 +219,8 @@ with tab_monitor:
         hours = list(range(5, 24))
         temps_f = [(curves[site["id"]].get(h, 0) * 9/5 + 32) for h in hours]
         fig.add_trace(go.Scatter(x=hours, y=temps_f, name=site["short_name"], mode="lines", line=dict(width=2.5)))
-    fig.add_hline(y=100.4, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (100.4°F)", annotation_position="top left")
-    fig.add_hline(y=95, line_dash="dot", line_color="#F97316", annotation_text="RED (95°F)", annotation_position="top left")
+    fig.add_hline(y=92, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (92°F WBGT)", annotation_position="top left")
+    fig.add_hline(y=90, line_dash="dot", line_color="#F97316", annotation_text="RED (90°F WBGT)", annotation_position="top left")
     fig.add_vline(x=hour, line_color="#60A5FA", line_width=3, annotation_text=f"Now: {hour:02d}:00", annotation_position="top")
     fig.add_vline(x=7, line_color="#22C55E", line_width=2, line_dash="dot", annotation_text="7 AM (safe)", annotation_position="top")
     fig.update_layout(template="plotly_dark", height=320, yaxis_title="Temperature (°F)", xaxis_title="Hour of Day",
@@ -285,7 +285,7 @@ with tab_analysis:
     fig2 = go.Figure()
     fig2.add_trace(go.Bar(name="KPHX Airport", x=site_names, y=apt, marker_color="#60A5FA", text=[f"{t:.0f}°F" for t in apt], textposition="outside"))
     fig2.add_trace(go.Bar(name="FortyGuard Field", x=site_names, y=fld, marker_color="#EF4444", text=[f"{t:.0f}°F" for t in fld], textposition="outside"))
-    fig2.add_hline(y=100.4, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (100.4°F)")
+    fig2.add_hline(y=92, line_dash="dash", line_color="#EF4444", annotation_text="BLACK (92°F WBGT)")
     fig2.update_layout(template="plotly_dark", height=350, barmode="group", yaxis_title="°F", yaxis_range=[80, 130],
                        legend=dict(orientation="h", y=1.02, x=0.5, xanchor="center"), margin=dict(t=40))
     st.plotly_chart(fig2, use_container_width=True)

@@ -151,16 +151,14 @@ from core_engine import compute_heat_index as get_heat_index
 
 def get_humidity_for_hour(hour: int) -> float:
     """Time-appropriate humidity estimate for Phoenix.
-
-    NOTE: Morning values raised to 40% per NWS climatology and
-    conservative safety practice (Perplexity review recommendation).
-    Higher humidity = higher WBGT = more conservative estimate.
+    Uses config.PHOENIX_HUMIDITY as single source of truth.
     """
+    from config import PHOENIX_HUMIDITY
     if hour < 11:
-        return 40.0  # Conservative morning estimate
+        return PHOENIX_HUMIDITY["morning_humidity_pct"]
     elif hour < 15:
-        return 15.0
-    return 12.0
+        return PHOENIX_HUMIDITY["midday_humidity_pct"]
+    return PHOENIX_HUMIDITY["afternoon_humidity_pct"]
 
 
 def get_all_site_readings(hour: int, day_type: str = "heat") -> list:

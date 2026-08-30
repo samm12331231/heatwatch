@@ -68,10 +68,10 @@ def compute_heat_index(temp_c: float, humidity_pct: float) -> float:
 # ============================================================
 
 def check_policy_threshold(heat_index_c: float) -> str:
-    """Check heat index against named policy thresholds. Returns level string.
+    """DEPRECATED: Check heat index against named policy thresholds.
 
-    NOTE: This function is kept for backward compatibility.
-    The primary policy metric is now WBGT (see get_policy_level in config.py).
+    This function is kept for eval_harness.py and fetch_quick.py backward compatibility.
+    The primary policy metric is now WBGT — use get_policy_level(wbgt_f) from config.py.
     Heat index is used as a secondary signal for rescheduling slot comparison.
     """
     thresholds = HEAT_POLICY["thresholds"]
@@ -196,9 +196,9 @@ def skeptic_check(site_temps: dict, current_temp: float, forecast_temp: float,
     # Verify the API response timestamp is recent (within 6 hours)
     if api_timestamp:
         try:
-            from datetime import datetime as dt
-            resp_time = dt.fromisoformat(api_timestamp.replace("Z", "+00:00"))
-            age_hours = (dt.now(dt.timezone.utc) - resp_time).total_seconds() / 3600
+            from datetime import datetime, timezone
+            resp_time = datetime.fromisoformat(api_timestamp.replace("Z", "+00:00"))
+            age_hours = (datetime.now(timezone.utc) - resp_time).total_seconds() / 3600
             if age_hours > 6:
                 results["data_freshness"] = False
                 results["reasons"].append(
@@ -255,9 +255,9 @@ def reschedule(activity: dict, morning_temp: float, midday_temp: float,
         h = hour_map[b]
         rh = PHOENIX_HUMIDITY["morning_humidity_pct"] if h < 11 else (
             PHOENIX_HUMIDITY["midday_humidity_pct"] if h < 15 else PHOENIX_HUMIDITY["afternoon_humidity_pct"])
-        # Conservative: no solar/wind data from FortyGuard API
-        solar = 0.0
-        wind = 0.0
+        # Conservative solar/wind for outdoor athletes (matches site_data.py)
+        solar = 900.0 if 6 <= h <= 18 else 0.0
+        wind = 1.5 if 6 <= h <= 18 else 0.0
         wbgt = estimate_wbgt(t, rh, solar, wind)
         bucket_wbgt[b] = wbgt["wbgt_f"]
         bucket_hi[b] = compute_heat_index(t, rh)
@@ -563,12 +563,14 @@ class CoreEngine:
             humidity_pct = PHOENIX_HUMIDITY["afternoon_humidity_pct"]
 
         # WBGT = primary metric (AIA 2026-2027 standard)
-        # Conservative: no solar/wind data available from FortyGuard API
-        # (on-field WBGT sensors would provide this in production)
-        # Using solar=0, wind=0 gives a conservative WBGT estimate
-        # that matches the dashboard's pre-computed readings.
-        solar_w_m2 = 0.0
-        wind_ms = 0.0
+        # Conservative solar/wind for outdoor athletes (matches site_data.py)
+        # Full sun on a Phoenix field: ~900 W/m²; using this when KPHX data unavailable
+        if 6 <= hour <= 18:
+            solar_w_m2 = 900.0
+            wind_ms = 1.5
+        else:
+            solar_w_m2 = 0.0
+            wind_ms = 0.0
 
         wbgt_result = estimate_wbgt(temperature_c, humidity_pct, solar_w_m2, wind_ms)
         wbgt_c = wbgt_result["wbgt_c"]
